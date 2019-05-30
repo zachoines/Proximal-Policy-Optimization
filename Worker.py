@@ -1,12 +1,29 @@
-import time, random, threading
+import time, random
+from threading import Thread
 import numpy as np
 import tensorflow as tf
 
+class WorkerThread(Thread):
+    def __init__(self, group=None, target=None, name=None,
+                 args=(), kwargs={}, Verbose=None):
+        Thread.__init__(self, group, target, name, args, kwargs)
+        self._return = None
+        self._target = target
+        self._args = args
+        self._kwargs = kwargs
+
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args,
+                                                **self._kwargs)
+    def join(self, *args):
+        Thread.join(self, *args)
+        return self._return
 
 # Class to represent a worker in an environment. Call run() to generate a batch. 
-class Worker:
+class Worker():
 
-    def __init__(self, network, env, batch_size = 32, num_batches = 8, render = True):
+    def __init__(self, network, env, batch_size = 32, render = True):
 
         # Epsisode collected variables
         self._batch_buffer = []
@@ -16,49 +33,40 @@ class Worker:
         self.network = network
         self.env = env
         self.batch_size = batch_size 
-        self.num_batches = num_batches
         self.s = env.reset()
 
     # Reset worker and evironment variables in preperation for a new epoc
-    def reset():
+    def reset(self):
         self._batch_buffer = []
         self._done = False
-        self.s = env.reset()
+        self.s = self.env.reset()
 
 
     # Generate an epocs worth of observations. Return nothing.
     def run(self):
-        
-        # Generate a minibatches 
-        for mb in range(self.num_batches):
-        
-            for step in range(self.batch_size):
+        batch = []
+        for step in range(self.batch_size):
 
-                # Make a prediction and take a step if the epoc is not done
-                if not self._done:
-                    [action], value = self.network.step(self.s)
-                    # action = self.action_select(actions)
-                    s_t, reward, d, _ = self.env.step(action)
-                    self._done = d
+            # Make a prediction and take a step if the epoc is not done
+            if not self._done:
+                [action], value = self.network.step(self.s)
+                # action = self.action_select(actions)
+                s_t, reward, d, _ = self.env.step(action)
+                self._done = d
 
-                    self._batch_buffer.append((self.s, s_t, reward, value, d))
-                    s = s_t
+                batch.append((self.s, s_t, reward, value, d))
+                s = s_t
 
-                    # render the env
-                    if (self._render):
-                        self.env.render()
-                # if the episode is already _done, generate a null entry
-                else:
-                    self._batch_buffer.append((None, None, 0, 0, True))
+                # render the env
+                if (self._render):
+                    self.env.render()
+            # if the episode is already _done, generate a null entry
+            else:
+                batch.append((None, None, 0, 0, True))
+        self._batch_buffer.append(batch)
+        return batch
 
-        
-                
-      
-
-        
-            
-
-            
+    
 
     # Get all the batches in this epoc
     def get_batches(self):

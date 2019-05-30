@@ -18,7 +18,7 @@ class AC_Network:
         self.initial_state = []
         self.num_actions = num_actions
 
-        with tf.name_scope(name + "policy_input"):
+        with tf.name_scope("policy_input"):
             self.X_input = tf.placeholder(tf.uint8, input_shape)
         
         

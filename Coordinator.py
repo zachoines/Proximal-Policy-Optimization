@@ -14,13 +14,14 @@ class Coordinator:
         self.mb = num_minibatches
 
     def run():
+        
         # Init the Network and Workers, starting then onto their own thread
         sess.run(tf.global_variables_initializer())
         workers = [Worker(self.model, env, render = False) for env in self.envs]
 
         threads = []
 
-        for _ in range(num_minibatches):
+        for _ in range(self.mb):
             for worker in workers:
                 t = threading.Thread(target = worker.run(), args=())
                 threads.append(t)
