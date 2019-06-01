@@ -18,6 +18,29 @@ from Wrappers import preprocess
 from Worker import Worker, WorkerThread
 from AC_Network import AC_Network
 
+# Produces reversed list of discounted rewards
+def discounted_rewards(rewards, dones, gamma):
+        discounted = []
+        r = 0
+        # Start from downwards to upwards like Bellman backup operation.
+        for reward, done in zip(rewards[::-1], dones[::-1]):
+            r = reward + gamma * r * (1. - done)  # fixed off by one bug
+            discounted.append(r)
+        return discounted[::-1]
+
+# Adjusted discounterd rewards should be used when rewards received from the env at each step are the sum of all previous
+# rewards plus the reward for the current step. Ex.) [1, 2, 3] -> [1, 1, 1] 
+def adjusted_discounterd_rewards(rewards):
+
+    adjusted_rewards = []
+    previous_reward = 0
+    for reward in rewards:
+        adjusted_rewards.append(rewards - previous_reward)
+        previous_reward = reward
+    
+    return adjusted_rewards
+
+
 # for debugging processed images
 def displayImage(img):
     cv2.imshow('image', np.squeeze(img, axis=0))
@@ -31,7 +54,6 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 
 env_names = [env_1, env_2, env_3, env_4]
-#env_names = [env_1]
 
 # Enviromental vars
 num_envs = len(env_names)
@@ -40,8 +62,8 @@ num_minibatches = 8
 num_epocs = 16
 gamma = .99
 
-tf.reset_default_graph()
 # Create a new tf session
+tf.reset_default_graph()
 config = tf.ConfigProto(allow_soft_placement=True,
                             intra_op_parallelism_threads=num_envs,
                             inter_op_parallelism_threads=num_envs)
@@ -91,6 +113,8 @@ for epoch in range(num_epocs):
         for thread in threads:
             batches.append(thread.join())
 
+        all_batches_discounted_rewards = []
+        all_batches_advantages = []
         # Calculate discounted rewards for each environment
         for env in range(num_envs):
             done = False
@@ -98,12 +122,19 @@ for epoch in range(num_epocs):
             total_discounted_rewards = 0
             steps = 0
             batch_advantages = []
-            batch_values_and_rewards = []
+            batch_rewards = []
+            batch_values = []
+            batch_dones = []
 
             mb = batches[env]
+
+            # For every step made in this env for this particular batch
             for step in mb:
                 steps += 1
-                (sate, observation, reward, value, done) = step
+                (state, observation, reward, value, done) = step
+                batch_rewards.append(reward)
+                batch_values.append(reward)
+                batch_dones.append(done)
                 
 
                 # displayImage(observation)
@@ -111,52 +142,20 @@ for epoch in range(num_epocs):
                 # If we reached the end of an episode or if we filled a batch without reaching termination of episode
                 # we boot strap the final rewards with the v_s(last_observation)
                 if (steps % batch_size == 0):
-                    total_discounted_rewards += value
+                    
+                    # Bootstrap terminal state value onto list of discounted retur                    batch_rewards = adjusted_discounterd_rewards(batch_rewards)
+                    batch_rewards = discounted_rewards(batch_rewards, batch_dones, gamma)
                     break
                 elif done:
-                    total_discounted_rewards = 0
+                    # Generate a reversed dicounted list of returns without boostrating (adding V(s_terminal)) on non-terminal state
+                    batch_rewards = discounted_rewards(batch_rewards + [value], gamma)[:-1]
                     break
                 else:
-                    # collect step rewards and values
-                    batch_values_and_rewards.append((reward, value))
+                    # Continue accumulating batch data
                     continue
+
+            # Collect individual batch data
+            all_batches_discounted_rewards.append(batch_rewards)
         
+
             
-            # from t - 1 to t_start, find discounted rewards and advantages
-            for (reward, value) in reversed(batch_values_and_rewards):
-                total_discounted_rewards += reward + gamma * total_discounted_rewards
-                batch_advantages.append(reward - value)
-
-            lastgaelam = 0
-
-            # From last step to first step
-            for t in reversed(range(self.steps)):
-                # If t == before last step
-                if t == steps - 1:
-                    # If a state is done, nextnonterminal = 0
-                    # In fact nextnonterminal allows us to do that logic
-
-                    #if done (so nextnonterminal = 0):
-                    #    delta = R - V(s) (because self.gamma * nextvalues * nextnonterminal = 0) 
-                    # else (not done)
-                        #delta = R + gamma * V(st+1)
-                    nextnonterminal = 1.0 - self.dones
-                    
-                    # V(t+1)
-                    nextvalues = last_values
-                else:
-                    nextnonterminal = 1.0 - mb_dones[t+1]
-                    
-                    nextvalues = mb_values[t+1]
-
-                # Delta = R(st) + gamma * V(t+1) * nextnonterminal  - V(st)
-                delta = mb_rewards[t] + gamma * nextvalues * nextnonterminal - mb_values[t]
-
-                # Advantage = delta + gamma *  λ (lambda) * nextnonterminal  * lastgaelam
-                mb_advantages[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
-
-            # Returns
-            mb_returns = mb_advantages + mb_values
-                
-
-
