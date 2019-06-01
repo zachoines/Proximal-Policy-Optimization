@@ -19,11 +19,11 @@ class AC_Network:
         self.num_actions = num_actions
 
         with tf.name_scope("policy_input"):
-            self.X_input = tf.placeholder(tf.uint8, input_shape)
+            self.X_input = tf.placeholder(tf.float32, input_shape)
         
         
         with tf.variable_scope("policy", reuse=reuse):
-            conv1 = conv2d('conv1', tf.cast(self.X_input, tf.float32) / 255., num_filters=32, kernel_size=(8, 8),
+            conv1 = conv2d('conv1', self.X_input, num_filters=32, kernel_size=(8, 8),
                            padding='VALID', stride=(4, 4),
                            initializer=orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
                            is_training=is_training)
