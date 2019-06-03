@@ -34,6 +34,7 @@ class Worker():
         self.env = env
         self.batch_size = batch_size 
         self.s = env.reset()
+        self.NUM_ACTIONS = env.action_space.n
 
     # Reset worker and evironment variables in preperation for a new epoc
     def reset(self):
@@ -54,7 +55,11 @@ class Worker():
                 s_t, reward, d, _ = self.env.step(action)
                 self._done = d
 
-                batch.append((self.s, s_t, reward, value, d))
+                # One Hot action representation
+                # one_hot = [0 for _ in range(self.NUM_ACTIONS)]
+                # one_hot[action - 1] = 1
+
+                batch.append((self.s, s_t, reward, value, action, d))
                 s = s_t
 
                 # render the env

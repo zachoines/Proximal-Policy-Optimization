@@ -17,6 +17,7 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 from Wrappers import preprocess
 from Worker import Worker, WorkerThread
 from AC_Network import AC_Network
+from Model import Model
 
 # Produces reversed list of discounted rewards
 def discounted_rewards(rewards, dones, gamma):
@@ -61,6 +62,7 @@ batch_size = 32
 num_minibatches = 8
 num_epocs = 16
 gamma = .99
+learning_rate =  7e-4
 
 # Create a new tf session
 tf.reset_default_graph()
@@ -70,7 +72,7 @@ config = tf.ConfigProto(allow_soft_placement=True,
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
 
-# Make the super mario gym environment and apply wrappers
+# Make the super mario gym environments and apply wrappers
 envs = []
 for env in env_names:
     env = gym.make(env)
@@ -83,8 +85,9 @@ NUM_ACTIONS = envs[0].env.action_space.n
 NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)
 
 
-# Init the Network and Workers, starting then onto their own thread
+# Init the Network, model, and Workers, starting them onto their own thread
 network = AC_Network(sess, NUM_STATE, NUM_ACTIONS)
+model = Model(network, sess)
 sess.run(tf.global_variables_initializer())
 
 workers = [Worker(network, env, batch_size = 32, render = False) for env in envs]
@@ -109,12 +112,18 @@ for epoch in range(num_epocs):
             thread.start()
             
         batches = []
+        
         # Wait foreach worker to finish and return their batch
         for thread in threads:
             batches.append(thread.join())
 
         all_batches_discounted_rewards = []
         all_batches_advantages = []
+        all_batches_actions = []
+        all_batches_loss = []
+        all_batches_observations = []
+        all_batches_states = []
+        
         # Calculate discounted rewards for each environment
         for env in range(num_envs):
             done = False
@@ -125,37 +134,85 @@ for epoch in range(num_epocs):
             batch_rewards = []
             batch_values = []
             batch_dones = []
+            batch_observations = []
+            batch_states = []
+            batch_actions = []
 
             mb = batches[env]
 
             # For every step made in this env for this particular batch
             for step in mb:
                 steps += 1
-                (state, observation, reward, value, done) = step
+                (state, observation, reward, value, action, done) = step
                 batch_rewards.append(reward)
-                batch_values.append(reward)
+                batch_values.append(value)
                 batch_dones.append(done)
+                batch_observations.append(observation)
+                batch_states.append(state)
+                batch_actions.append(action)
                 
 
                 # displayImage(observation)
 
                 # If we reached the end of an episode or if we filled a batch without reaching termination of episode
-                # we boot strap the final rewards with the v_s(last_observation)
+                # we boot-strap the final rewards with the V_s(last_observation)
                 if (steps % batch_size == 0):
                     
                     # Bootstrap terminal state value onto list of discounted retur                    batch_rewards = adjusted_discounterd_rewards(batch_rewards)
                     batch_rewards = discounted_rewards(batch_rewards, batch_dones, gamma)
                     break
                 elif done:
+                    
                     # Generate a reversed dicounted list of returns without boostrating (adding V(s_terminal)) on non-terminal state
                     batch_rewards = discounted_rewards(batch_rewards + [value], gamma)[:-1]
                     break
                 else:
+                    
                     # Continue accumulating batch data
                     continue
 
-            # Collect individual batch data
+                # Collect advantages
+                for i in range(len(batch_rewards)):
+                    batch_advantages = batch_rewards[i] - batch_values[i]
+
+
+            # Collect all individual batch data from each env
             all_batches_discounted_rewards.append(batch_rewards)
+            all_batches_advantages.append(batch_advantages)
+            all_batches_actions.append(batch_actions)
+            all_batches_observations.append(batch_observations)
+            all_batches_states.append(batch_states)
+
+
+            # Now perform tensorflow session to determine policy and value loss for this batch
+            feed_dict = {model.train_policy.input_shape: batch_observations, 
+                        model.actions: batch_actions,
+                        model.advantage: batch_advantages,
+                        model.reward: batch_rewards, 
+                        model.learning_rate: learning_rate,
+                        model.is_training: True}
+            
+            loss, policy_loss, value_loss, policy_entropy, _ = sess.run(
+                [model.loss, model.policy_gradient_loss, model.value_function_loss, model.entropy],
+                feed_dict
+            )
+
+            # collect loss for averaging later
+            all_batches_loss.append(loss)
+
+    # Take average of all the loss and then backpropogate through the network
+    model.ready_backpropagation()
+
+    # Average the losses
+    average_loss = 0
+    for loss in all_batches_loss():
+        average_loss += loss
+    average_loss = average_loss / len(envs)
+
+    # Update the network
+            
+    sess.run([model.optimize], feed_dict = {model.average_loss: average_loss})
+        
         
 
             
