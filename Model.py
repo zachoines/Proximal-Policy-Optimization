@@ -18,10 +18,11 @@ class Model:
         # Batch data that will be sent to Model by the coordinator
         with tf.name_scope('variables'):
             self.actions = tf.placeholder(tf.int32, [None])  # actions
-            self.advantage = tf.placeholder(tf.float32, [None])  # advantage function
-            self.reward = tf.placeholder(tf.float32, [None])  # reward
+            self.advantages = tf.placeholder(tf.float32, [None])  # advantage function
+            self.rewards = tf.placeholder(tf.float32, [None])  # rewards
             self.is_training = tf.placeholder(tf.bool)  # is_training
             self.average_loss = tf.placeholder(tf.float32, [None])
+            self.values = tf.placeholder(tf.float32, [None])
 
         # Local network
         self.step_policy = self.policy(self.sess, self.policy.input_shape, self.policy.num_actions, reuse=False,
@@ -35,16 +36,16 @@ class Model:
          
         with tf.variable_scope('loss'):
             
-            # Responsible Output -log(pi)
+            # Responsible Output -log π(a_i|s_i)
             negative_log_prob_action = tf.nn.sparse_softmax_cross_entropy_with_logits(
                 logits=self.train_policy.policy_logits,
-                labels=self.actions)
+                labels=self.actions) 
 
-            # 1/n * sum A(si,ai) * -logpi(ai|si)
-            self.policy_loss = tf.reduce_sum(self.advantage * negative_log_prob_action)
+            # Policy Loss:  1/n * ∑ A(s_i,a+i) *-log π(a_i|s_i)
+            self.policy_loss = tf.reduce_mean(self.advantages * negative_log_prob_action)
 
-            # Value loss 1/2 SUM [R - V(s)]^2
-            self.value_loss = tf.reduce_sum(tf.square(tf.squeeze(self.train_policy.value_function) - self.reward) / 2.0)
+            # Value loss: 1/n * ∑[V(i) - R_i]^2
+            self.value_loss = tf.reduce_mean(tf.square(self.values - self.rewards))
 
             # Apply Entropy 
             self.entropy = tf.reduce_sum(- tf.reduce_sum(self.train_policy.policy_logits * tf.log(self.train_policy.policy_logits + 1e-6), axis=1))

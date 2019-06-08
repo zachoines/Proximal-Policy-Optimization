@@ -21,13 +21,13 @@ from Model import Model
 
 # Produces reversed list of discounted rewards
 def discounted_rewards(rewards, dones, gamma):
-        discounted = []
-        r = 0
-        # Start from downwards to upwards like Bellman backup operation.
-        for reward, done in zip(rewards[::-1], dones[::-1]):
-            r = reward + gamma * r * (1. - done)  # fixed off by one bug
-            discounted.append(r)
-        return discounted[::-1]
+    discounted = []
+    r = 0
+    # Start from downwards to upwards like Bellman backup operation.
+    for reward, done in zip(rewards[::-1], dones[::-1]):
+        r = reward + gamma * r * (1. - done)  # fixed off by one bug
+        discounted.append(r)
+    return np.array(discounted[::-1])
 
 # Adjusted discounterd rewards should be used when rewards received from the env at each step are the sum of all previous
 # rewards plus the reward for the current step. Ex.) [1, 2, 3] -> [1, 1, 1] 
@@ -130,9 +130,9 @@ for epoch in range(num_epocs):
             bootstrap_value = 0
             total_discounted_rewards = 0
             steps = 0
-            batch_advantages = []
+            batch_advantages = np.array([])
             batch_rewards = []
-            batch_values = []
+            batch_values = np.array([])
             batch_dones = []
             batch_observations = []
             batch_states = []
@@ -145,11 +145,14 @@ for epoch in range(num_epocs):
                 steps += 1
                 (state, observation, reward, value, action, done) = step
                 batch_rewards.append(reward)
-                batch_values.append(value)
+                batch_values = np.append(batch_values, value)
                 batch_dones.append(done)
                 batch_observations.append(observation)
                 batch_states.append(state)
                 batch_actions.append(action)
+
+
+
                 
 
                 # displayImage(observation)
@@ -159,21 +162,21 @@ for epoch in range(num_epocs):
                 if (steps % batch_size == 0):
                     
                     # Bootstrap terminal state value onto list of discounted retur                    batch_rewards = adjusted_discounterd_rewards(batch_rewards)
-                    batch_rewards = discounted_rewards(batch_rewards, batch_dones, gamma)
+                    batch_rewards = discounted_rewards(batch_rewards + [0.0], batch_dones, gamma)
+                    advantages = batch_rewards + gamma * batch_values[1:] - batch_values[:-1]
                     break
                 elif done:
                     
                     # Generate a reversed dicounted list of returns without boostrating (adding V(s_terminal)) on non-terminal state
-                    batch_rewards = discounted_rewards(batch_rewards + [value], gamma)[:-1]
+                    batch_rewards = discounted_rewards(batch_rewards + [value], batch_dones, gamma)
+                    advantages = batch_rewards + gamma * batch_values[1:] - batch_values[:-1]
                     break
                 else:
                     
                     # Continue accumulating batch data
                     continue
 
-                # Collect advantages
-                for i in range(len(batch_rewards)):
-                    batch_advantages = batch_rewards[i] - batch_values[i]
+            
 
 
             # Collect all individual batch data from each env
@@ -200,18 +203,28 @@ for epoch in range(num_epocs):
             # collect loss for averaging later
             all_batches_loss.append(loss)
 
-    # Take average of all the loss and then backpropogate through the network
+    # Init more tensorflow variables in the model's graph
     model.ready_backpropagation()
 
-    # Average the losses
+    # Average the losses (Derivitive of a sum is the same as the sum of derivitives.
+    # So average the loss and perform gradient descent)
     average_loss = 0
     for loss in all_batches_loss():
         average_loss += loss
     average_loss = average_loss / len(envs)
 
-    # Update the network
-            
-    sess.run([model.optimize], feed_dict = {model.average_loss: average_loss})
+    # Update the network       
+    _ = sess.run([model.optimize], feed_dict = {model.average_loss: average_loss})
+
+
+
+    # def train(rewards, ) {
+    #     self.rewards_plus = np.asarray(rewards.tolist() + [bootstrap_value])
+    #     discounted_rewards = discount(self.rewards_plus,gamma)[:-1]
+    #     self.value_plus = np.asarray(values.tolist() + [bootstrap_value])
+    #     advantages = rewards + gamma * self.value_plus[1:] - self.value_plus[:-1]
+    #     advantages = discount(advantages,gamma)
+    # }
         
         
 
