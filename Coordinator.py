@@ -14,26 +14,7 @@ class Coordinator:
         self.mb = num_minibatches
 
     def run():
-        
-        # Init the Network and Workers, starting then onto their own thread
-        sess.run(tf.global_variables_initializer())
-        workers = [Worker(self.model, env, render = False) for env in self.envs]
-
-        threads = []
-
-        for _ in range(self.mb):
-            for worker in workers:
-                t = threading.Thread(target = worker.run(), args=())
-                threads.append(t)
-                t.start()
-
-            for thread in threads:
-                thread.join()
-
-        total_batches = []
-        for worker in workers:
-            total_batches.append(worker.get_batches())
-
+        pass
 
     def collect_batches_and_run_updates():
         pass
