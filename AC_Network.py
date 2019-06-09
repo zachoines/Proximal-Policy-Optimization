@@ -18,11 +18,16 @@ class AC_Network:
         self.initial_state = []
         self.num_actions = num_actions
 
-        with tf.name_scope("policy_input"):
-            self.X_input = tf.placeholder(tf.float32, input_shape)
-        
-        
-        with tf.variable_scope("policy", reuse=reuse):
+        # Dicounting hyperparams for loss functions
+        self.entropy_coef = 0.01
+        self.value_function_coeff = 0.5
+        self.max_grad_norm = 0.5
+        self.learning_rate =  7e-4
+        self.alpha = 0.99
+        self.epsilon = 1e-5
+
+        with tf.variable_scope(name):
+            self.X_input = tf.placeholder(tf.float32, (None, 96, 96, 1))
             conv1 = conv2d('conv1', self.X_input, num_filters=32, kernel_size=(8, 8),
                            padding='VALID', stride=(4, 4),
                            initializer=orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
@@ -38,20 +43,80 @@ class AC_Network:
 
             conv3_flattened = flatten(conv3)
 
-            fc4 = dense('fc4', conv3_flattened, output_dim=512, initializer=orthogonal_initializer(np.sqrt(2)),
+            fc4 = dense('fc4', conv3_flattened, output_dim = 512, initializer = orthogonal_initializer(np.sqrt(2)),
                         activation=tf.nn.relu, is_training=is_training)
 
-            self.policy_logits = dense('policy_logits', fc4, output_dim=num_actions,
-                                       initializer=orthogonal_initializer(np.sqrt(1.0)), is_training=is_training)
+            self.policy_logits = dense('policy_logits', fc4, output_dim = num_actions,
+                                       initializer = orthogonal_initializer(np.sqrt(1.0)), is_training=is_training)
 
             self.value_function = dense('value_function', fc4, output_dim=1,
-                                        initializer=orthogonal_initializer(np.sqrt(1.0)), is_training=is_training)
+                                        initializer = orthogonal_initializer(np.sqrt(1.0)), is_training=is_training)
 
             with tf.name_scope('value'):
                 self.value_s = self.value_function[:, 0]
 
             with tf.name_scope('action'):
                 self.action_s = noise_and_argmax(self.policy_logits)
+
+
+            if name == "step":
+
+                # Batch data that will be sent to Model by the coordinator
+                self.actions = tf.placeholder(tf.int32, [None]) 
+                self.advantages = tf.placeholder(tf.float32, [None])  
+                self.rewards = tf.placeholder(tf.float32, [None]) 
+                self.values = tf.placeholder(tf.float32, [None])
+                
+                # Responsible Outputs -log π(a_i|s_i)
+                negative_log_prob_action = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                    logits=self.policy_logits,
+                    labels=self.actions) 
+
+                # Policy Loss:  ∑ A(s_i, a_i) * -log π(a_i|s_i)
+                self.policy_loss = tf.reduce_sum(self.advantages * negative_log_prob_action)
+
+                # Value loss: 1/n * ∑[V(i) - R_i]^2
+                self.value_loss = tf.reduce_mean(tf.square(self.values - self.rewards))
+
+                # Entropy: - ∑ P_i * Log (P_i)
+                self.entropy = - tf.reduce_sum(self.policy_logits * tf.log(self.policy_logits))
+
+                # Total loss: Policy loss - entropy * entropy coefficient + value coefficient * value loss
+                # self.loss = self.policy_loss - self.entropy * self.entropy_coef + self.value_function_coeff * self.value_loss 
+                self.loss = self.value_loss + self.policy_loss 
+                
+                # tf.stop_gradient(self.loss)
+                # params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'train')
+                # with tf.variable_scope("step"):
+                #     params = tf.trainable_variables()
+                
+                # grads = tf.gradients(self.average_loss, params)
+                
+                # if self.max_grad_norm is not None:
+                #     grads, grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+
+                # # Apply Gradients 
+                # grads = list(zip(grads, params))
+                
+
+                
+                
+                # # Update network weights 
+                # self.optimize = optimizer.apply_gradients(grads)
+
+                # Get local gradients from step network
+                # trainer = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate, decay=self.alpha, epsilon=self.epsilon)
+                trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, epsilon=self.epsilon)
+                self.average_loss = tf.placeholder(tf.float32, [None])
+                local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "step")
+                self.gradients = tf.gradients(self.average_loss, local_vars)
+                self.var_norms = tf.global_norm(local_vars)
+                grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 40.0)
+                
+                # Apply local gradients to global train network
+                global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'train')
+                # self.apply_grads = trainer.apply_gradients(zip(grads,global_vars))
+
 
     def step(self, observation, *_args, **_kwargs):
         # Take a step using the model and return the predicted policy and value function

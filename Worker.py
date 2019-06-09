@@ -39,7 +39,7 @@ class Worker():
     def reset(self):
         self._batch_buffer = []
         self._done = False
-        self.s = self.env.reset()
+        [self.s] = self.env.reset()
 
 
     # Generate an epocs worth of observations. Return nothing.
@@ -49,17 +49,13 @@ class Worker():
 
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
-                [action], value = self.network.step(self.s)
+                [action], value = self.network.step([self.s])
                 # action = self.action_select(actions)
-                s_t, reward, d, _ = self.env.step(action)
+                [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
-                # One Hot action representation
-                # one_hot = [0 for _ in range(self.NUM_ACTIONS)]
-                # one_hot[action - 1] = 1
-
-                batch.append((self.s, s_t, reward, value, action, d))
-                s = s_t
+                batch.append((self.s, s_t , reward, value, action, d))
+                s = [s_t]
 
                 # render the env
                 if (self._render):

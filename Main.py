@@ -82,15 +82,17 @@ for env in env_names:
 
 (HEIGHT, WIDTH, CHANNELS) = envs[0].observation_space.shape
 NUM_ACTIONS = envs[0].env.action_space.n
+ACTION_SPACE = envs[0].env.action_space
 NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)
 
 
+
 # Init the Network, model, and Workers, starting them onto their own thread
-network = AC_Network(sess, NUM_STATE, NUM_ACTIONS)
-model = Model(network, sess)
+network_params = (sess, NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
+model = Model(network_params)
 sess.run(tf.global_variables_initializer())
 
-workers = [Worker(network, env, batch_size = 32, render = False) for env in envs]
+workers = [Worker(model, env, batch_size = 32, render = False) for env in envs]
 
 # Main training loop
 for epoch in range(num_epocs):
@@ -151,25 +153,31 @@ for epoch in range(num_epocs):
                 batch_states.append(state)
                 batch_actions.append(action)
 
-
-
-                
-
                 # displayImage(observation)
 
                 # If we reached the end of an episode or if we filled a batch without reaching termination of episode
                 # we boot-strap the final rewards with the V_s(last_observation)
+
+                # Discounted bootstraped rewards formula:
+                # G_t == R + γ * V(S_t'):
+                
+                # Advantage
+                # δ_t == R + γ * V(S_t') - V(S_t): 
                 if (steps % batch_size == 0):
                     
                     # Bootstrap terminal state value onto list of discounted retur                    batch_rewards = adjusted_discounterd_rewards(batch_rewards)
                     batch_rewards = discounted_rewards(batch_rewards + [0.0], batch_dones, gamma)
-                    advantages = batch_rewards + gamma * batch_values[1:] - batch_values[:-1]
+                    V_S = np.append(batch_values[:-1], 0.0)
+                    V_next = np.append(np.array(0.0), batch_values[1:])
+                    batch_advantages = batch_rewards + gamma * ((V_next) - (V_S))
                     break
                 elif done:
                     
                     # Generate a reversed dicounted list of returns without boostrating (adding V(s_terminal)) on non-terminal state
-                    batch_rewards = discounted_rewards(batch_rewards + [value], batch_dones, gamma)
-                    advantages = batch_rewards + gamma * batch_values[1:] - batch_values[:-1]
+                    batch_rewards = discounted_rewards(batch_rewards + [0.0], batch_dones, gamma)
+                    V_S = np.append(batch_values[:-1], 0.0)
+                    V_next = np.append(np.array(0.0), batch_values[1:])
+                    batch_advantages = batch_rewards + gamma * ((V_next) - (V_S))
                     break
                 else:
                     
@@ -188,23 +196,20 @@ for epoch in range(num_epocs):
 
 
             # Now perform tensorflow session to determine policy and value loss for this batch
-            feed_dict = {model.train_policy.input_shape: batch_observations, 
-                        model.actions: batch_actions,
-                        model.advantage: batch_advantages,
-                        model.reward: batch_rewards, 
-                        model.learning_rate: learning_rate,
-                        model.is_training: True}
+            feed_dict = { 
+                model.step_policy.X_input: np.array(batch_states),
+                model.step_policy.actions: batch_actions,
+                model.step_policy.advantages: batch_advantages,
+                model.step_policy.values: batch_values,
+                model.step_policy.rewards: batch_rewards, 
+            }
             
-            loss, policy_loss, value_loss, policy_entropy, _ = sess.run(
-                [model.loss, model.policy_gradient_loss, model.value_function_loss, model.entropy],
-                feed_dict
-            )
+            # Run tensorflow graph, return loss without updateing gradients 
+            loss = sess.run([model.step_policy.loss], feed_dict)
 
             # collect loss for averaging later
             all_batches_loss.append(loss)
 
-    # Init more tensorflow variables in the model's graph
-    model.ready_backpropagation()
 
     # Average the losses (Derivitive of a sum is the same as the sum of derivitives.
     # So average the loss and perform gradient descent)
@@ -216,15 +221,15 @@ for epoch in range(num_epocs):
     # Update the network       
     _ = sess.run([model.optimize], feed_dict = {model.average_loss: average_loss})
 
+def update_target_graph(from_scope,to_scope):
+    from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, from_scope)
+    to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, to_scope)
 
+    op_holder = []
+    for from_var,to_var in zip(from_vars,to_vars):
+        op_holder.append(to_var.assign(from_var))
+    return op_holder
 
-    # def train(rewards, ) {
-    #     self.rewards_plus = np.asarray(rewards.tolist() + [bootstrap_value])
-    #     discounted_rewards = discount(self.rewards_plus,gamma)[:-1]
-    #     self.value_plus = np.asarray(values.tolist() + [bootstrap_value])
-    #     advantages = rewards + gamma * self.value_plus[1:] - self.value_plus[:-1]
-    #     advantages = discount(advantages,gamma)
-    # }
         
         
 
