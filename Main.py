@@ -104,6 +104,9 @@ for epoch in range(num_epocs):
     # loop for generating a training session a batch at a time
     for mb in range(num_minibatches):
 
+        # Copy global network over to local network
+        model.refresh_local_network_params
+
         # Send workers out to threads
         threads = []
         for worker in workers:
@@ -119,12 +122,14 @@ for epoch in range(num_epocs):
         for thread in threads:
             batches.append(thread.join())
 
-        all_batches_discounted_rewards = []
-        all_batches_advantages = []
-        all_batches_actions = []
-        all_batches_loss = []
-        all_batches_observations = []
+        all_batches_discounted_rewards = np.array([])
+        all_batches_advantages = np.array([])
+        all_batches_values = np.array([])
+        all_batches_actions = np.array([])
+        all_batches_loss = np.array([])
+        all_batches_observations = np.array([])
         all_batches_states = []
+        all_batches_rewards = np.array([])
         
         # Calculate discounted rewards for each environment
         for env in range(num_envs):
@@ -160,7 +165,7 @@ for epoch in range(num_epocs):
 
                 # Discounted bootstraped rewards formula:
                 # G_t == R + γ * V(S_t'):
-                
+
                 # Advantage
                 # δ_t == R + γ * V(S_t') - V(S_t): 
                 if (steps % batch_size == 0):
@@ -188,47 +193,28 @@ for epoch in range(num_epocs):
 
 
             # Collect all individual batch data from each env
-            all_batches_discounted_rewards.append(batch_rewards)
-            all_batches_advantages.append(batch_advantages)
-            all_batches_actions.append(batch_actions)
-            all_batches_observations.append(batch_observations)
-            all_batches_states.append(batch_states)
-
-
-            # Now perform tensorflow session to determine policy and value loss for this batch
-            feed_dict = { 
-                model.step_policy.X_input: np.array(batch_states),
-                model.step_policy.actions: batch_actions,
-                model.step_policy.advantages: batch_advantages,
-                model.step_policy.values: batch_values,
-                model.step_policy.rewards: batch_rewards, 
-            }
+            all_batches_values = np.concatenate((all_batches_values, batch_values), axis=0)
+            all_batches_discounted_rewards = np.concatenate((all_batches_discounted_rewards, batch_rewards), axis = 0)
+            all_batches_advantages = np.concatenate((all_batches_advantages, batch_advantages), axis = 0)
+            all_batches_actions = np.concatenate((all_batches_actions, batch_actions), axis = 0)
             
-            # Run tensorflow graph, return loss without updateing gradients 
-            loss = sess.run([model.step_policy.loss], feed_dict)
+            # all_batches_observations = np.concatenate((all_batches_observations, batch_observations), axis = 0)
+            all_batches_states += batch_states
+            all_batches_rewards = np.concatenate((all_batches_rewards, batch_rewards), axis = 0)
 
-            # collect loss for averaging later
-            all_batches_loss.append(loss)
+        # Now perform tensorflow session to determine policy and value loss for this batch
+        feed_dict = { 
+            model.step_policy.X_input: all_batches_states,
+            model.step_policy.actions: all_batches_actions,
+            model.step_policy.advantages: all_batches_advantages,
+            model.step_policy.values: all_batches_values,
+            model.step_policy.rewards: all_batches_rewards, 
+        }
+        
+        # Run tensorflow graph, return loss without updateing gradients 
+        loss, optimizer = sess.run([model.step_policy.loss, model.step_policy.optimize], feed_dict)
 
 
-    # Average the losses (Derivitive of a sum is the same as the sum of derivitives.
-    # So average the loss and perform gradient descent)
-    average_loss = 0
-    for loss in all_batches_loss():
-        average_loss += loss
-    average_loss = average_loss / len(envs)
-
-    # Update the network       
-    _ = sess.run([model.optimize], feed_dict = {model.average_loss: average_loss})
-
-def update_target_graph(from_scope,to_scope):
-    from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, from_scope)
-    to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, to_scope)
-
-    op_holder = []
-    for from_var,to_var in zip(from_vars,to_vars):
-        op_holder.append(to_var.assign(from_var))
-    return op_holder
 
         
         

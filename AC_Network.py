@@ -85,36 +85,33 @@ class AC_Network:
                 # self.loss = self.policy_loss - self.entropy * self.entropy_coef + self.value_function_coeff * self.value_loss 
                 self.loss = self.value_loss + self.policy_loss 
                 
-                # tf.stop_gradient(self.loss)
-                # params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'train')
-                # with tf.variable_scope("step"):
-                #     params = tf.trainable_variables()
+     
+                with tf.variable_scope("step"):
+                    params = tf.trainable_variables()
                 
-                # grads = tf.gradients(self.average_loss, params)
+                grads = tf.gradients(self.loss, params)
                 
-                # if self.max_grad_norm is not None:
-                #     grads, grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+                if self.max_grad_norm is not None:
+                    grads, grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
 
-                # # Apply Gradients 
-                # grads = list(zip(grads, params))
-                
+                # Apply Gradients 
+                grads = list(zip(grads, params))
 
+                optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, epsilon=self.epsilon)
                 
-                
-                # # Update network weights 
-                # self.optimize = optimizer.apply_gradients(grads)
+                # Update network weights 
+                self.optimize = optimizer.apply_gradients(grads)
 
                 # Get local gradients from step network
                 # trainer = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate, decay=self.alpha, epsilon=self.epsilon)
-                trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, epsilon=self.epsilon)
-                self.average_loss = tf.placeholder(tf.float32, [None])
-                local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "step")
-                self.gradients = tf.gradients(self.average_loss, local_vars)
-                self.var_norms = tf.global_norm(local_vars)
-                grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 40.0)
+                # trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, epsilon=self.epsilon)
+                # local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "step")
+                # self.gradients = tf.gradients(self.loss, local_vars)
+                # self.var_norms = tf.global_norm(local_vars)
+                # grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 40.0)
                 
-                # Apply local gradients to global train network
-                global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'train')
+                # # Apply local gradients to global train network
+                # global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'train')
                 # self.apply_grads = trainer.apply_gradients(zip(grads,global_vars))
 
 
