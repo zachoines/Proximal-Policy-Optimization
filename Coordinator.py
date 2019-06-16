@@ -101,8 +101,6 @@ class Coordinator:
                         batch_states.append(state)
                         batch_actions.append(action)
 
-                        # displayImage(observation)
-
                         # If we reached the end of an episode or if we filled a batch without reaching termination of episode
                         # we boot-strap the final rewards with the V_s(last_observation)
 

@@ -30,8 +30,8 @@ class GrayScaleImage(ObservationWrapper):
     
     # for debugging processed images
     def _displayImage(self, img):
-        img = self.sess.run(img)
-        cv2.imshow('image',img)
+        # img = self.sess.run(img)
+        cv2.imshow('image',np.squeeze(img, 0))
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
@@ -57,6 +57,28 @@ class GrayScaleImage(ObservationWrapper):
             img = sess.run(self.cnn_input)
         return img
 
+
+class FrameSkip(ObservationWrapper):
+    
+    def __init__(self, env, frame_skips):
+        super(FrameSkip, self).__init__(env)
+        self.k = frame_skips
+
+    def step(self, action):
+        observation, reward, done, info = self.env.step(action)
+        current_observation = observation
+        current_reward = reward
+        current_done = done
+        current_info = info
+
+        for step in range(self.k - 1):
+            current_observation, reward, current_done, current_info = self.env.step(action)
+            current_reward += reward
+
+        return self.observation(current_observation), current_reward, current_done, current_info
+    
+    def observation(self, observation):
+        return self._observation(observation)
 
 class FrameStack(gym.Wrapper):
     def __init__(self, env, k):
