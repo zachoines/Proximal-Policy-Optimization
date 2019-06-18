@@ -14,8 +14,12 @@ from gym.spaces.box import Box
 
 
 class Monitor(ObservationWrapper):
-    def __init__(self, env, record = False, savePath = "/Videos", random_samples = False, save_images_to_disk = False):
+    def __init__(self, env, env_shape, record = False, savePath = "/Videos", random_samples = False, save_images_to_disk = False):
         super(Monitor, self).__init__(env)
+        (HEIGHT, WIDTH, CHANNELS) = env_shape
+        self._height = HEIGHT
+        self._width = WIDTH
+        self._channels = CHANNELS
         self._frame_array = []
         self._history = []
         self._fps = None
@@ -29,12 +33,17 @@ class Monitor(ObservationWrapper):
             self._is_running = True
         
         observation, reward, done, info = self.env.step(action)
-
         # if (not done):
         #     self._fps = 1.0 / (time.time() - self._start_time)
         if self._record:
+            # for image in self._frame_array:
+            #     self._displayImage(image)
             self._displayImage(observation)
-            return self.observation(observation), reward, done, info
+            self._frame_array.append(observation)
+            for image in self._frame_array:
+                self._displayImage(image)
+
+            return observation, reward, done, info
         else:
             return observation, reward, done, info
 
@@ -53,7 +62,6 @@ class Monitor(ObservationWrapper):
         return self.observation(observation)
 
     def observation(self, observation):
-        self._frame_array.append(observation)
         return observation
 
     def _reset_monitor(self):
@@ -70,8 +78,8 @@ class Monitor(ObservationWrapper):
         cv2.destroyAllWindows()
  
     def _convert_frames_to_video(self):
-        img_array = np.asarray(self._frame_array)
-        height, width, channels = img_array[0].shape
+        
+        img_array = self._frame_array
         size = None
 
         # TODO:: Set option to read images from files at end of episode to
@@ -79,13 +87,11 @@ class Monitor(ObservationWrapper):
         if (False):
             for filename in glob.glob('./Images/*.jpg'):
                 img = cv2.imread(filename)
-                height, width, layers = img.shape
-                size = (width,height)
+                size = (self._width, self._height)
                 img_array.append(img)
         else:   
             if (len(img_array)):   
-                height, width, channels = img_array[0].shape
-                size = (width, height)
+                size = (self._width, self._height)
         
         timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d_%H_%M_%S')
         out = cv2.VideoWriter(timestamp + '.avi' , cv2.VideoWriter_fourcc(*'DIVX'), 15, size)

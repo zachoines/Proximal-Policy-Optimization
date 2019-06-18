@@ -38,11 +38,11 @@ num_epocs = 16
 gamma = .99
 learning_rate =  7e-4
 
-# Create a new tf session
+# Create a new tf session with 
 tf.reset_default_graph()
-config = tf.ConfigProto(allow_soft_placement=True,
-                            intra_op_parallelism_threads=num_envs,
-                            inter_op_parallelism_threads=num_envs)
+config = tf.ConfigProto(allow_soft_placement=True, 
+    intra_op_parallelism_threads=num_envs,
+    inter_op_parallelism_threads=num_envs)
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
 
@@ -57,7 +57,7 @@ for env in env_names:
 
     env = gym.make(env)
     env = BinarySpaceToDiscreteSpaceEnv(env, SIMPLE_MOVEMENT)
-    env = Monitor(env, record = record)
+    env = Monitor(env, env.observation_space.shape, record = record)
     env = preprocess.GrayScaleImage(env, sess, height = 96, width = 96, grayscale = True)
 
     envs.append(env)
