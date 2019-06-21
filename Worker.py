@@ -32,7 +32,7 @@ class Worker():
         self.network = network
         self.env = env
         self.batch_size = batch_size 
-        self.s = env.reset()
+        self.s = None
         self.NUM_ACTIONS = env.action_space.n
 
     # Reset worker and evironment variables in preperation for a new epoc

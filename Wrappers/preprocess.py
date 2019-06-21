@@ -55,7 +55,7 @@ class GrayScaleImage(ObservationWrapper):
         
         with tf.Session() as sess:
             img = sess.run(self.cnn_input)
-
+        # self._displayImage(img)
         return img
 
 
