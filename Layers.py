@@ -1,5 +1,7 @@
 import tensorflow as tf
 import numpy as np
+
+
 def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0,
           bias=0.0, activation=None, batchnorm_enabled=False, dropout_keep_prob=-1, is_training=True):
     with tf.variable_scope(name) as scope:
@@ -114,3 +116,28 @@ def flatten(x):
     all_dims_exc_first = np.prod([v.value for v in x.get_shape()[1:]])
     o = tf.reshape(x, [-1, all_dims_exc_first])
     return o
+
+def max_pool(x, size=(2, 2)):
+
+    size_x, size_y = size
+    return tf.nn.max_pool(x, ksize=[1, size_x, size_y, 1], strides=[1, size_x, size_y, 1], padding='VALID',
+                          name='pooling')
+
+def noise_and_argmax(logits):
+    # Add noise then take the argmax
+    noise = tf.random_uniform(tf.shape(logits))
+    return tf.argmax(logits - tf.log(-tf.log(noise)), 1)
+
+
+def openai_entropy(logits):
+    # Entropy proposed by OpenAI in their A2C baseline
+    a0 = logits - tf.reduce_max(logits, 1, keep_dims=True)
+    ea0 = tf.exp(a0)
+    z0 = tf.reduce_sum(ea0, 1, keep_dims=True)
+    p0 = ea0 / z0
+    return tf.reduce_sum(p0 * (tf.log(z0) - a0), 1)
+
+
+def softmax_entropy(p0):
+    # Normal information theory entropy by Shannon
+    return - tf.reduce_sum(p0 * tf.log(p0 + 1e-6), axis=1)

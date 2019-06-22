@@ -34,6 +34,8 @@ class Worker():
         self.batch_size = batch_size 
         self.s = None
         self.NUM_ACTIONS = env.action_space.n
+        self.NONE_STATE = np.zeros(self.env.observation_space.shape)
+        
 
     # Reset worker and evironment variables in preperation for a new epoc
     def reset(self):
@@ -42,7 +44,7 @@ class Worker():
         [self.s] = self.env.reset()
 
 
-    # Generate an epocs worth of observations. Return nothing.
+    # Generate an batch worth of observations. Return nothing.
     def run(self):
         batch = []
         for step in range(self.batch_size):
@@ -54,15 +56,20 @@ class Worker():
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
+
                 batch.append((self.s, s_t , reward, value, action, d))
                 s = [s_t]
 
                 # render the env
                 if (self._render):
                     self.env.render()
+            
             # if the episode is already _done, generate a null entry
             else:
-                batch.append((None, None, 0, 0, 0, True))
+                
+                print("Mario died in a thread.")
+                batch.append(([self.NONE_STATE], [self.NONE_STATE], 0, 0, 0, True))
+
         self._batch_buffer.append(batch)
         return batch
 

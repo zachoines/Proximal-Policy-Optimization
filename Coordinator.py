@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import cv2
+import scipy.signal
 
 # import local classes
 from Model import Model
@@ -28,6 +29,9 @@ class Coordinator:
             r = reward + gamma * r * (1. - done)  # fixed off by one bug
             discounted.append(r)
         return np.array(discounted[::-1])
+
+    def discount(self, x, gamma):
+        return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
 
     # for debugging processed images
     def displayImage(self, img):
@@ -90,6 +94,7 @@ class Coordinator:
                         batch_actions = []
 
                         mb = batches[env]
+                        collected = False
 
                         # For every step made in this env for this particular batch
                         for step in mb:
@@ -110,39 +115,53 @@ class Coordinator:
 
                             # Advantage
                             # δ_t == R + γ * V(S_t') - V(S_t): 
-                            if (steps % self.batch_size == 0):
+                            if (steps % self.batch_size == 0 and not done):
                                 
                                 # Bootstrap terminal state value onto list of discounted retur                    batch_rewards = adjusted_discounterd_rewards(batch_rewards)
-                                batch_rewards = self.discounted_rewards(batch_rewards + [0.0], batch_dones, self.gamma)
-                                V_S = np.append(batch_values[:-1], 0.0)
-                                V_next = np.append(np.array(0.0), batch_values[1:])
-                                batch_advantages = batch_rewards + self.gamma * ((V_next) - (V_S))
-                                break
-                            elif done:
+                                # batch_rewards = self.discounted_rewards(batch_rewards, batch_dones, self.gamma)
+                                # V_S = np.append(batch_values[:-1], 0.0)
+                                # V_next = np.append(np.array(0.0), batch_values[1:])
+                                # batch_advantages = (batch_rewards + self.gamma * (V_next)) - (V_S)
+
+                                batch_rewards = self.discount(batch_rewards, self.gamma)  
+                                batch_advantages = batch_rewards - batch_values
                                 
-                                # Generate a reversed dicounted list of returns without boostrating (adding V(s_terminal)) on non-terminal state
-                                batch_rewards = self.discounted_rewards(batch_rewards + [0.0], batch_dones, self.gamma)
-                                V_S = np.append(batch_values[:-1], 0.0)
-                                V_next = np.append(np.array(0.0), batch_values[1:])
-                                batch_advantages = batch_rewards + self.gamma * ((V_next) - (V_S))
+                                index = self.batch_size - 1
+                                bootstrap = self.gamma * self.model.value([observation])
+                                batch_advantages[index] += bootstrap
+
+                                # Collect all individual batch data from each env
+                                all_batches_values = np.concatenate((all_batches_values, batch_values), axis=0)
+                                all_batches_discounted_rewards = np.concatenate((all_batches_discounted_rewards, batch_rewards), axis = 0)
+                                all_batches_advantages = np.concatenate((all_batches_advantages, batch_advantages), axis = 0)
+                                all_batches_actions = np.concatenate((all_batches_actions, batch_actions), axis = 0)
+                                
+                                # all_batches_observations = np.concatenate((all_batches_observations, batch_observations), axis = 0)
+                                all_batches_states += batch_states
+                                all_batches_rewards = np.concatenate((all_batches_rewards, batch_rewards), axis = 0)
+                                collected = True
                                 break
+                         
                             else:
                                 
                                 # Continue accumulating batch data
                                 continue
-
                         
-
-
-                        # Collect all individual batch data from each env
-                        all_batches_values = np.concatenate((all_batches_values, batch_values), axis=0)
-                        all_batches_discounted_rewards = np.concatenate((all_batches_discounted_rewards, batch_rewards), axis = 0)
-                        all_batches_advantages = np.concatenate((all_batches_advantages, batch_advantages), axis = 0)
-                        all_batches_actions = np.concatenate((all_batches_actions, batch_actions), axis = 0)
+                        batch_rewards = self.discount(batch_rewards, self.gamma)  
+                        batch_advantages = batch_rewards - batch_values
                         
-                        # all_batches_observations = np.concatenate((all_batches_observations, batch_observations), axis = 0)
-                        all_batches_states += batch_states
-                        all_batches_rewards = np.concatenate((all_batches_rewards, batch_rewards), axis = 0)
+                        if not collected:
+
+                            # Collect all individual batch data from each env
+                            all_batches_values = np.concatenate((all_batches_values, batch_values), axis=0)
+                            all_batches_discounted_rewards = np.concatenate((all_batches_discounted_rewards, batch_rewards), axis = 0)
+                            all_batches_advantages = np.concatenate((all_batches_advantages, batch_advantages), axis = 0)
+                            all_batches_actions = np.concatenate((all_batches_actions, batch_actions), axis = 0)
+                            
+                            # all_batches_observations = np.concatenate((all_batches_observations, batch_observations), axis = 0)
+                            all_batches_states += batch_states
+                            all_batches_rewards = np.concatenate((all_batches_rewards, batch_rewards), axis = 0)
+                            
 
                     # Now perform tensorflow session to determine policy and value loss for this batch
                     feed_dict = { 

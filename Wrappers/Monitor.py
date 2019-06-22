@@ -42,7 +42,7 @@ class Monitor(ObservationWrapper):
         # self._timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d_%H_%M_%S')
         current_milli_time = lambda: int(round(time.time() * 1000))
 
-        self._session_video = cv2.VideoWriter(self._savePath + "\\" + str(current_milli_time()) + '.avi' , apiPreference = 0, fourcc = cv2.VideoWriter_fourcc(*'DIVX'), fps = 15, frameSize = (self._width, self._height))
+        self._session_video = cv2.VideoWriter(self._savePath + "\\" + str(current_milli_time()) + '.avi' , apiPreference = 0, fourcc = cv2.VideoWriter_fourcc(*'DIVX'), fps = 30, frameSize = (self._width, self._height))
     
         observation = self.env.reset(**kwargs)
         self._is_running = False

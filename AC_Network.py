@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from layer import conv2d, flatten, dense
-from layer import orthogonal_initializer, noise_and_argmax
+from Layers import create_conv, flatten, create_dense
+from Layers import orthogonal_initializer, noise_and_argmax
 
 
 
@@ -28,28 +28,28 @@ class AC_Network:
 
         with tf.variable_scope(name):
             self.X_input = tf.placeholder(tf.float32, (None, 96, 96, 1))
-            conv1 = conv2d('conv1', self.X_input, num_filters=32, kernel_size=(8, 8),
+            conv1 = create_conv('conv1', self.X_input, num_filters=32, kernel_size=(8, 8),
                            padding='VALID', stride=(4, 4),
                            initializer=orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
                            is_training=is_training)
 
-            conv2 = conv2d('conv2', conv1, num_filters=64, kernel_size=(4, 4), padding='VALID', stride=(2, 2),
+            conv2 = create_conv('conv2', conv1, num_filters=64, kernel_size=(4, 4), padding='VALID', stride=(2, 2),
                            initializer=orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
                            is_training=is_training)
 
-            conv3 = conv2d('conv3', conv2, num_filters=64, kernel_size=(3, 3), padding='VALID', stride=(1, 1),
+            conv3 = create_conv('conv3', conv2, num_filters=64, kernel_size=(3, 3), padding='VALID', stride=(1, 1),
                            initializer=orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
                            is_training=is_training)
 
             conv3_flattened = flatten(conv3)
 
-            fc4 = dense('fc4', conv3_flattened, output_dim = 512, initializer = orthogonal_initializer(np.sqrt(2)),
+            fc4 = create_dense('fc4', conv3_flattened, output_dim = 512, initializer = orthogonal_initializer(np.sqrt(2)),
                         activation=tf.nn.relu, is_training=is_training)
 
-            self.policy_logits = dense('policy_logits', fc4, output_dim = num_actions,
+            self.policy_logits = create_dense('policy_logits', fc4, output_dim = num_actions,
                                        initializer = orthogonal_initializer(np.sqrt(1.0)), is_training=is_training)
 
-            self.value_function = dense('value_function', fc4, output_dim=1,
+            self.value_function = create_dense('value_function', fc4, output_dim=1,
                                         initializer = orthogonal_initializer(np.sqrt(1.0)), is_training=is_training)
 
             with tf.name_scope('value'):
