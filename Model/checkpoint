@@ -1,0 +1,2 @@
+model_checkpoint_path: "C:\\Users\\zacho\\Desktop\\Mario_AI-master\\AC2_MARIO\\Model\\model.ckpt"
+all_model_checkpoint_paths: "C:\\Users\\zacho\\Desktop\\Mario_AI-master\\AC2_MARIO\\Model\\model.ckpt"
