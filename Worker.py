@@ -62,7 +62,7 @@ class Worker():
                     self.env.render()
             # if the episode is already _done, generate a null entry
             else:
-                batch.append((None, None, 0, 0, True))
+                batch.append((None, None, 0, 0, 0, True))
         self._batch_buffer.append(batch)
         return batch
 

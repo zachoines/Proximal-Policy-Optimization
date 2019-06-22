@@ -14,7 +14,7 @@ from gym.spaces.box import Box
 
 
 class Monitor(ObservationWrapper):
-    def __init__(self, env, env_shape, record = False, savePath = "/Videos", random_samples = False, save_images_to_disk = False):
+    def __init__(self, env, env_shape, record = False, savePath = "\Videos", random_samples = False, save_images_to_disk = False):
         super(Monitor, self).__init__(env)
         (HEIGHT, WIDTH, CHANNELS) = env_shape
         self._height = HEIGHT
@@ -39,8 +39,10 @@ class Monitor(ObservationWrapper):
         if self._session_video:
             self._session_video.release()
         
-        self._timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d_%H_%M_%S')
-        self._session_video = cv2.VideoWriter(self._timestamp + '.avi' , apiPreference = 0, fourcc = cv2.VideoWriter_fourcc(*'DIVX'), fps = 15, frameSize = (self._width, self._height))
+        # self._timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d_%H_%M_%S')
+        current_milli_time = lambda: int(round(time.time() * 1000))
+
+        self._session_video = cv2.VideoWriter(self._savePath + "\\" + str(current_milli_time()) + '.avi' , apiPreference = 0, fourcc = cv2.VideoWriter_fourcc(*'DIVX'), fps = 15, frameSize = (self._width, self._height))
     
         observation = self.env.reset(**kwargs)
         self._is_running = False

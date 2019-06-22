@@ -28,23 +28,24 @@ env_2 = 'SuperMarioBros-v0'
 env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 
-# env_names = [env_1, env_2, env_3, env_4]
-env_names = [env_1]
+env_names = [env_1, env_2, env_3, env_4]
+# env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
 model_save_path = current_dir + '\AC2_MARIO\Model'
-video_save_path = current_dir + '\AC2_MARIO\Videos'
+video_save_path = current_dir + '.\AC2_MARIO\Videos'
+record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 32
+batch_size = 64
 num_minibatches = 8
-num_epocs = 1
+num_epocs = 16
 gamma = .99
 learning_rate =  7e-4
 
-# Create a new tf session with 
+# Create a new tf session with graphics enabled
 tf.reset_default_graph()
 config = tf.ConfigProto(allow_soft_placement=True, 
     intra_op_parallelism_threads=num_envs,
@@ -54,16 +55,11 @@ sess = tf.Session(config=config)
 
 # Make the super mario gym environments and apply wrappers
 envs = []
-counter = 1
-record = False
-for env in env_names:
-    if (counter == num_envs):
-        counter += 1
-        record = True
 
+for env in env_names:
     env = gym.make(env)
     env = BinarySpaceToDiscreteSpaceEnv(env, SIMPLE_MOVEMENT)
-    env = Monitor(env, env.observation_space.shape, record = record)
+    env = Monitor(env, env.observation_space.shape, savePath = video_save_path,  record = record)
     env = preprocess.GrayScaleImage(env, sess, height = 96, width = 96, grayscale = True)
 
     envs.append(env)
@@ -86,8 +82,11 @@ if not os.path.exists(model_save_path):
     os.makedirs(model_save_path)
 else:
     try:
-        saver.restore(sess, model_save_path + "\model.ckpt")
-        print("Model restored.")
+        if (model_save_path + "\checkpoint"):
+            saver.restore(sess, model_save_path + "\model.ckpt")
+            print("Model restored.")
+        else:
+            print("Creating new model.")
     except:
         print("ERROR: There was an issue loading the model!")
         raise
@@ -96,7 +95,7 @@ if not os.path.exists(video_save_path):
     os.makedirs(video_save_path)
 
 # Init coordinator and send out the workers
-workers = [Worker(model, env, batch_size = 32, render = False) for env in envs]
+workers = [Worker(model, env, batch_size = batch_size, render = False) for env in envs]
 coordinator = Coordinator(sess, model, workers, num_envs, num_epocs, num_minibatches, batch_size, gamma)
 
 # Train and save
