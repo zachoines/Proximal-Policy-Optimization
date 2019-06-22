@@ -1,5 +1,6 @@
 *.mp4
 *.json
 *.pth
+*.avi
 Test
 __pycache__
