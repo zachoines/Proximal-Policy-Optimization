@@ -63,12 +63,10 @@ class Worker():
                 # render the env
                 if (self._render):
                     self.env.render()
-            
-            # if the episode is already _done, generate a null entry
+
             else:
-                
-                print("Mario died in a thread.")
-                batch.append(([self.NONE_STATE], [self.NONE_STATE], 0, 0, 0, True))
+                self._batch_buffer.append(batch)
+                return batch
 
         self._batch_buffer.append(batch)
         return batch

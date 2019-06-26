@@ -42,7 +42,7 @@ def conv2d_p(name, x, w=None, num_filters=16, kernel_size=(3, 3), padding='SAME'
 
 
 
-def conv2d(name, x, w=None, num_filters=16, kernel_size=(3, 3), padding='SAME', stride=(1, 1),
+def create_conv(name, x, w=None, num_filters=16, kernel_size=(3, 3), padding='SAME', stride=(1, 1),
            initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0, bias=0.0,
            activation=None, batchnorm_enabled=False, max_pool_enabled=False, dropout_keep_prob=-1,
            is_training=True):
@@ -122,7 +122,7 @@ def dense_p(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.xavie
         return output
 
 
-def dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0,
+def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0,
           bias=0.0,
           activation=None, batchnorm_enabled=False, dropout_keep_prob=-1,
           is_training=True

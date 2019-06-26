@@ -12,7 +12,7 @@ import tensorflow as tf
 import numpy as np
 from nes_py.wrappers import BinarySpaceToDiscreteSpaceEnv
 import gym_super_mario_bros
-from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
+from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
 # Locally defined classes
 from Wrappers import preprocess
@@ -39,8 +39,8 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 64
-num_minibatches = 8
+batch_size = 16
+num_minibatches = 64
 num_epocs = 16
 gamma = .99
 learning_rate =  7e-4
