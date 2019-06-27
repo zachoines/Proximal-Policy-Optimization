@@ -140,13 +140,18 @@ class Coordinator:
                             batch_rewards = self.discount(batch_rewards, self.gamma)  
                             batch_advantages = batch_rewards - batch_values
                             self.train(batch_states, batch_actions, batch_advantages)
+                    # Train and save
 
-            print("Training session was sucessfull.")
-            return True
-        except:
-            print("ERROR: The coordinator ran into an issue during training!")
-            raise  
-            return False
+                try:
+                    saver = tf.train.Saver()
+                    save_path = saver.save(sess, model_save_path + "\model.ckpt")
+                    print("Model saved.")
+                except:
+                    print("ERROR: There was an issue saving the model!")
+                    raise
+
+                
+                
         
 
 

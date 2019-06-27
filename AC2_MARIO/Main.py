@@ -69,6 +69,7 @@ config = tf.ConfigProto(allow_soft_placement=True,
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
 
+
 # Make the super mario gym environments and apply wrappers
 envs = []
 
@@ -111,7 +112,7 @@ if not os.path.exists(video_save_path):
     os.makedirs(video_save_path)
 
 # Init coordinator and send out the workers
-workers = [Worker(model, env, batch_size = batch_size, render = True) for env in envs]
+workers = [Worker(model, env, batch_size = batch_size, render = False) for env in envs]
 coordinator = Coordinator(sess, model, workers, num_envs, num_epocs, num_minibatches, batch_size, gamma)
 
 # Train and save
