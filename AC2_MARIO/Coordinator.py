@@ -85,7 +85,8 @@ class Coordinator:
                     
                     # Wait foreach worker to finish and return their batch
                     for thread in threads:
-                        batches.append(thread.join())
+                        batch = thread.join()
+                        batches.append(batch)
 
                     
                     # Calculate discounted rewards for each environment
@@ -149,23 +150,3 @@ class Coordinator:
         
 
 
-# # Collect all individual batch data from each env
-# all_batches_values = np.concatenate((all_batches_values, batch_values), axis=0)
-# all_batches_discounted_rewards = np.concatenate((all_batches_discounted_rewards, batch_rewards), axis = 0)
-# all_batches_advantages = np.concatenate((all_batches_advantages, batch_advantages), axis = 0)
-# all_batches_actions = np.concatenate((all_batches_actions, batch_actions), axis = 0)
-
-# # all_batches_observations = np.concatenate((all_batches_observations, batch_observations), axis = 0)
-# all_batches_states += batch_states
-# all_batches_rewards = np.concatenate((all_batches_rewards, batch_rewards), axis = 0)
-
-
-
-# all_batches_discounted_rewards = np.array([])
-# all_batches_advantages = np.array([])
-# all_batches_values = np.array([])
-# all_batches_actions = np.array([])
-# all_batches_loss = np.array([])
-# all_batches_observations = np.array([])
-# all_batches_states = []
-# all_batches_rewards = np.array([])

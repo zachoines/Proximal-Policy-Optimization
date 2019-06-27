@@ -69,6 +69,8 @@ class Worker():
                 return batch
 
         self._batch_buffer.append(batch)
+        if batch == None:
+            print('There is an issue!')
         return batch
 
     
