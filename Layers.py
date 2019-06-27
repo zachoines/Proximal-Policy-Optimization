@@ -63,7 +63,7 @@ def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), paddi
             conv_a = activation(conv_o_b)
 
             if dropout_keep_prob != -1:
-                conv_o_dr = tf.nn.dropout(conv_a, dropout_keep_prob)
+                conv_o_dr = tf.nn.dropout(conv_a, rate = dropout_keep_prob)
             else:
                 conv_o_dr = conv_a
 
@@ -108,11 +108,6 @@ def max_pool_2d(x, size=(2, 2)):
                           name='pooling')
 
 def flatten(x):
-    """
-    Flatten a (N,H,W,C) input into (N,D) output. Used for fully connected layers after conolution layers
-    :param x: (tf.tensor) representing input
-    :return: flattened output
-    """
     all_dims_exc_first = np.prod([v.value for v in x.get_shape()[1:]])
     o = tf.reshape(x, [-1, all_dims_exc_first])
     return o
