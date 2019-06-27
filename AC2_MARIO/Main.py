@@ -1,3 +1,6 @@
+# install requirements with:
+# pip install -r requirements.txt
+
 # Utility python classes
 import threading
 import os
