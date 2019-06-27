@@ -3,4 +3,5 @@
 *.pth
 *.avi
 Test
+.vscode
 __pycache__
