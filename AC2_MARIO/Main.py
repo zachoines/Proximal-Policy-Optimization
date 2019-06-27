@@ -44,8 +44,8 @@ env_2 = 'SuperMarioBros-v0'
 env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 
-# env_names = [env_1, env_2, env_3, env_4]
-env_names = [env_1]
+env_names = [env_1, env_2, env_3, env_4]
+# env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -113,7 +113,7 @@ if not os.path.exists(video_save_path):
 
 # Init coordinator and send out the workers
 workers = [Worker(model, env, batch_size = batch_size, render = False) for env in envs]
-coordinator = Coordinator(sess, model, workers, num_envs, num_epocs, num_minibatches, batch_size, gamma)
+coordinator = Coordinator(sess, model, workers, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
 
 # Train and save
 if coordinator.run():

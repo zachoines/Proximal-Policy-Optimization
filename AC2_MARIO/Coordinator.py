@@ -10,9 +10,10 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, session, model, workers, num_envs, num_epocs, num_minibatches, batch_size, gamma):
+    def __init__(self, session, model, workers, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
         self.sess = session
         self.model = model
+        self.model_save_path = model_save_path
         self.workers = workers
         self.num_envs = num_envs
         self.num_epocs = num_epocs
@@ -139,19 +140,24 @@ class Coordinator:
 
                             batch_rewards = self.discount(batch_rewards, self.gamma)  
                             batch_advantages = batch_rewards - batch_values
-                            self.train(batch_states, batch_actions, batch_advantages)
+                            data = (batch_states, batch_actions, batch_advantages)
+                            self.train(data)
                     # Train and save
 
                 try:
                     saver = tf.train.Saver()
-                    save_path = saver.save(sess, model_save_path + "\model.ckpt")
+                    save_path = saver.save(self.sess, self.model_save_path + "\model.ckpt")
                     print("Model saved.")
                 except:
                     print("ERROR: There was an issue saving the model!")
                     raise
 
-                
-                
+                    print("Training session was sucessfull.")
+                    return True
+        except:
+            print("ERROR: The coordinator ran into an issue during training!")
+            raise  
+            return False
         
 
 
