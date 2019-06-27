@@ -27,30 +27,30 @@ class AC_Network:
         self.epsilon = 1e-5
 
         with tf.variable_scope(name):
-            self.X_input = tf.placeholder(tf.float32, (None, 96, 96, 1))
-            conv1 = create_conv('conv1', self.X_input, num_filters=32, kernel_size=(8, 8),
-                           padding='VALID', stride=(4, 4),
-                           initializer=orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
-                           max_pool_enabled=True)
+            self.X_input = tf.placeholder(tf.float32, (None, 128, 128, 1))
+            conv1 = create_conv('conv1', self.X_input, num_filters=32, kernel_size=(7, 7),
+                           padding = 'VALID', stride=(4, 4),
+                           initializer = orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
+                           max_pool_enabled = True)
 
-            conv2 = create_conv('conv2', conv1, num_filters=64, kernel_size=(4, 4), padding='VALID', stride=(2, 2),
-                           initializer=orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
-                           max_pool_enabled=True)
+            conv2 = create_conv('conv2', conv1, num_filters=64, kernel_size=(5, 5), padding = 'VALID', stride=(2, 2),
+                           initializer = orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
+                           max_pool_enabled = True)
 
-            conv3 = create_conv('conv3', conv2, num_filters=64, kernel_size=(3, 3), padding='VALID', stride=(1, 1),
+            conv3 = create_conv('conv3', conv2, num_filters=64, kernel_size=(3, 3), padding = 'VALID', stride=(1, 1),
                            initializer=orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
-                           max_pool_enabled=True)
+                           max_pool_enabled = False)
 
             conv3_flattened = flatten(conv3)
 
             fc4 = create_dense('fc4', conv3_flattened, output_dim = 512, initializer = orthogonal_initializer(np.sqrt(2)),
-                        activation=tf.nn.relu, dropout_keep_prob = 0.01)
+                        activation=tf.nn.relu, rate = 0.01)
 
             self.policy_logits = create_dense('policy_logits', fc4, output_dim = num_actions,
-                                       initializer = orthogonal_initializer(np.sqrt(1.0)), is_training=is_training)
+                                       initializer = orthogonal_initializer(np.sqrt(1.0)))
 
             self.value_function = create_dense('value_function', fc4, output_dim=1,
-                                        initializer = orthogonal_initializer(np.sqrt(1.0)), is_training=is_training)
+                                        initializer = orthogonal_initializer(np.sqrt(1.0)))
 
             with tf.name_scope('value'):
                 self.value_s = self.value_function[:, 0]

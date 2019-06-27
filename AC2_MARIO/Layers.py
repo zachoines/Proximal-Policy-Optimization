@@ -3,7 +3,7 @@ import numpy as np
 
 
 def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0,
-          bias=0.0, activation=None, batchnorm_enabled=False, dropout_keep_prob=-1, is_training=True):
+          bias=0.0, activation=None, rate=-1):
     with tf.variable_scope(name) as scope:
         n_in = x.get_shape()[-1].value
 
@@ -27,8 +27,8 @@ def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.
         else:
             dense_a = activation(dense_o_b)
 
-        if dropout_keep_prob != -1:
-            dense_o_dr = tf.nn.dropout(dense_a, dropout_keep_prob)
+        if rate != -1:
+            dense_o_dr = tf.nn.dropout(dense_a, rate)
         else:
             dense_o_dr = dense_a
 
@@ -38,8 +38,7 @@ def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.
 
 def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), padding = 'VALID', stride = (4, 4),
            initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0, bias=0.0,
-           activation = tf.nn.relu, batchnorm_enabled=False, max_pool_enabled=False, dropout_keep_prob=-1,
-           is_training=True):
+           activation = tf.nn.relu, max_pool_enabled=False, rate=-1):
 
     # initializer=orthogonal_initializer(np.sqrt(2))
     stride = [1, stride[0], stride[1], 1]
@@ -62,8 +61,8 @@ def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), paddi
             conv_o_b = tf.nn.bias_add(conv, bias)
             conv_a = activation(conv_o_b)
 
-            if dropout_keep_prob != -1:
-                conv_o_dr = tf.nn.dropout(conv_a, rate = dropout_keep_prob)
+            if rate != -1:
+                conv_o_dr = tf.nn.dropout(conv_a, rate = rate)
             else:
                 conv_o_dr = conv_a
 

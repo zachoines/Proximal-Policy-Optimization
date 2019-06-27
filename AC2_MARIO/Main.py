@@ -73,7 +73,7 @@ for env in env_names:
     env = gym.make(env)
     env = JoypadSpace(env, CUSTOM_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath = video_save_path,  record = record)
-    env = preprocess.GrayScaleImage(env, sess, height = 96, width = 96, grayscale = True)
+    env = preprocess.GrayScaleImage(env, sess, height = 128, width = 128, grayscale = True)
 
     envs.append(env)
 
