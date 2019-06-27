@@ -69,7 +69,7 @@ def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), paddi
 
             conv_o = conv_o_dr
             if max_pool_enabled:
-                conv_o = max_pool_2d(scope, conv_o_dr)
+                conv_o = max_pool_2d(conv_o_dr)
             
     return conv_o
 
