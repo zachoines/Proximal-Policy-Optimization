@@ -7,6 +7,7 @@ import os
 import numpy as np
 import tensorflow as tf
 import cv2
+import matplotlib.pyplot as plt
 
 # Importing the packages for OpenAI and MARIO
 import gym
@@ -21,7 +22,7 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 # Locally defined classes
 from Wrappers import preprocess
 from Wrappers.Monitor import Monitor
-from Wrappers import Stats
+from Wrappers.Stats import Stats, Collector
 from Worker import Worker, WorkerThread
 from AC_Network import AC_Network
 from Model import Model
@@ -45,8 +46,8 @@ env_2 = 'SuperMarioBros-v0'
 env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 
-env_names = [env_1, env_2, env_3, env_4]
-# env_names = [env_1]
+# env_names = [env_1, env_2, env_3, env_4]
+env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -57,7 +58,7 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 64
+num_minibatches = 4
 num_epocs = 16
 gamma = .99
 learning_rate =  7e-4
@@ -73,13 +74,13 @@ sess = tf.Session(config=config)
 
 # Make the super mario gym environments and apply wrappers
 envs = []
-
+collector = Collector()
 for env in env_names:
     env = gym.make(env)
     env = JoypadSpace(env, CUSTOM_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath = video_save_path,  record = record)
     env = preprocess.GrayScaleImage(env, sess, height = 128, width = 128, grayscale = True)
-
+    env = Stats(env, collector)
     envs.append(env)
 
 (HEIGHT, WIDTH, CHANNELS) = envs[0].observation_space.shape
@@ -123,5 +124,3 @@ if coordinator.run():
         print("Model saved.")
     except:
         print("ERROR: There was an issue saving the model!")
-        raise
-    

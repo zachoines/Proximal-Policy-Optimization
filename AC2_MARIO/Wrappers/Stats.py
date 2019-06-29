@@ -10,6 +10,9 @@ import time
 import gym
 from gym.core import RewardWrapper
 
+# Local classes
+from Worker import WorkerThread
+
 # An action Wrapper class for environments
 class Stats(RewardWrapper):
     def __init__(self, env, collector):
@@ -19,8 +22,9 @@ class Stats(RewardWrapper):
         self.CMA = 0
 
     def reset(self, **kwargs):
+        if self.numSteps > 0:
+            self.collector.collect('CMA', self.CMA)
         self.numSteps = 0
-        self.collector.collect('CMA', self.CMA)
         self.CMA = 0
         return self.env.reset(**kwargs)
 
@@ -43,10 +47,13 @@ class Collector:
         self._data = []
         
         # Setup matplotlib stuff here
-        style.use('fivethirtyeight')
+        # style.use('fivethirtyeight')
+        # plt.ion()
         self._fig = plt.figure()
         self._ani = animation.FuncAnimation(self._fig, self._update_graph, interval = 1000)
-        plt.show()
+        plt.show(block = False)
+        
+        # plt.show()
 
     def collect(self, name, data):
         current_time = self.current_milli_time()
@@ -56,10 +63,16 @@ class Collector:
             entry = (name, OrderedDict([(current_time, data)]))
             self._data.append(entry)
         else:
-            index = next((key for key, value in enumerate(self._data) if value[0] == name), None)
-            (dim_name, dim_values) = self._data[index]
-            dim_values.update( ( current_time , data ) )
-            self._data[index] = (dim_name, dim_values)
+            dim_values = None
+            for (key, value) in self._data:
+                if key == name:
+                    dim_values = value
+                    break
+                
+            # index = next(key for key, value in self._data if key == name
+            if dim_values != None:
+                dim_values[current_time] = data 
+
 
     def get_dimension(self, name):
         index = next((key for key, value in enumerate(self._data) if value[0] == name), None)
@@ -72,19 +85,36 @@ class Collector:
             return self._data.pop(index)
 
     def _update_graph(self, i):
+        if (len(self.dimensions) > 0):
+            name = self.dimensions[0]
+        else:
+            # Not ready to show anything
+            return
+        data = self.get_dimension(name)
+        axis = self._fig.add_subplot(1,1,1)
+        xar = []
+        yar = []
 
-        for name in self.dimensions:
-            data = self.get_dimension(name)
-            axis = self._fig.add_subplot(1,1,1)
-            xar = []
-            yar = []
+        for x, y in data.items():
+            xar.append(int(x))
+            yar.append(int(y))
 
-            for x, y in data:
-                xar.append(int(x))
-                yar.append(int(y))
+        axis.clear()
+        axis.plot(xar,yar)
+        
+        if (len(self.dimensions > 1)):
+            for name in self.dimensions:
+                data = self.get_dimension(name)
+                axis = self._fig.add_subplot(1,1,1)
+                xar = []
+                yar = []
 
-            axis.clear()
-            axis.plot(xar,yar)
+                for x, y in data.items():
+                    xar.append(int(x))
+                    yar.append(int(y))
+
+                axis.plot(xar,yar)
+        
         
 
         
