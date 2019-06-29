@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
+from collections import OrderedDict
 import time
 
 # OpenAI Gym classes
@@ -36,49 +37,54 @@ class Stats(RewardWrapper):
 # Class designed to collect along multiple 2d dimentions and graph live results
 class Collector:
     def __init__(self):
-        # datastructure is this [( Data_name : { x_0 : y_0, x_1 : y_1, ....}), ....]
+        # datastructure is this: [( Data_name : { x_0 : y_0, x_1 : y_1, ....}), ....]
         self.current_milli_time = lambda: int(round(time.time() * 1000))
         self.dimensions = []
         self._data = []
         
         # Setup matplotlib stuff here
-        # style.use('fivethirtyeight')
-        # fig = plt.figure()
-        # self.ax1 = fig.add_subplot(1,1,1)
-        # self.ani = animation.FuncAnimation(fig, animate, interval=1000)
-    
+        style.use('fivethirtyeight')
+        self._fig = plt.figure()
+        self._ani = animation.FuncAnimation(self._fig, self._update_graph, interval = 1000)
+        plt.show()
+
     def collect(self, name, data):
         current_time = self.current_milli_time()
 
         if (name not in self.dimensions):
             self.dimensions.append(name)
-            self._data.append((name , { current_time : data }))
+            entry = (name, OrderedDict([(current_time, data)]))
+            self._data.append(entry)
         else:
             index = next((key for key, value in enumerate(self._data) if value[0] == name), None)
             (dim_name, dim_values) = self._data[index]
-            dim_values.update( { current_time : data } )
+            dim_values.update( ( current_time , data ) )
             self._data[index] = (dim_name, dim_values)
 
+    def get_dimension(self, name):
+        index = next((key for key, value in enumerate(self._data) if value[0] == name), None)
+        (dim_name, dim_values) = self._data[index]
+        return dim_values
             
     def remove(self, name):
         if name in self.dimensions:
             index = next((key for key, value in enumerate(self._data) if value[0] == name), None)
             return self._data.pop(index)
 
-    def _update_graph():
-        pass
+    def _update_graph(self, i):
 
+        for name in self.dimensions:
+            data = self.get_dimension(name)
+            axis = self._fig.add_subplot(1,1,1)
+            xar = []
+            yar = []
 
-    # def animate(self, i):
-    #     xar = []
-    #     yar = []
-    #     for eachLine in dataArray:
-    #         if len(eachLine)>1:
-    #             x,y = eachLine.split(',')
-    #             xar.append(int(x))
-    #             yar.append(int(y))
-    #     ax1.clear()
-    #     ax1.plot(xar,yar)
+            for x, y in data:
+                xar.append(int(x))
+                yar.append(int(y))
 
-    # def run():
-    #     plt.show()
+            axis.clear()
+            axis.plot(xar,yar)
+        
+
+        
