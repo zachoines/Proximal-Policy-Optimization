@@ -22,15 +22,17 @@ class Coordinator:
         self.gamma = gamma
         self.total_loss = 0
     
+    
     def train(self, train_data):
-        (all_batches_states,
-        all_batches_actions,
-        all_batches_advantages) = train_data
+        (batch_states,
+        batch_actions,
+        batch_advantages) = train_data
+        
         # Now perform tensorflow session to determine policy and value loss for this batch
         feed_dict = { 
-            self.model.step_policy.X_input: all_batches_states,
-            self.model.step_policy.actions: all_batches_actions,
-            self.model.step_policy.advantages: all_batches_advantages,
+            self.model.step_policy.X_input: batch_states,
+            self.model.step_policy.actions: batch_actions,
+            self.model.step_policy.advantages: batch_advantages,
         }
         
         # Run tensorflow graph, return loss without updateing gradients 
@@ -38,16 +40,16 @@ class Coordinator:
         self.total_loss += loss
 
 
-    # Produces reversed list of discounted rewards
-    def discounted_rewards(self, rewards, dones, gamma):
-        discounted = []
-        r = 0
-        # Start from downwards to upwards like Bellman backup operation.
-        for reward, done in zip(rewards[::-1], dones[::-1]):
-            r = reward + gamma * r * (1. - done)  # fixed off by one bug
-            discounted.append(r)
-        return np.array(discounted[::-1])
+    # def discounted_rewards(self, rewards, dones, gamma):
+    #     discounted = []
+    #     r = 0
 
+    #     for reward, done in zip(rewards[::-1], dones[::-1]):
+    #         r = reward + gamma * r * (1. - done) 
+    #         discounted.append(r)
+    #     return np.array(discounted[::-1])
+
+    # Produces reversed list of discounted rewards
     def discount(self, x, gamma):
         return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
 
@@ -142,7 +144,6 @@ class Coordinator:
                             batch_advantages = batch_rewards - batch_values
                             data = (batch_states, batch_actions, batch_advantages)
                             self.train(data)
-                    # Train and save
 
                 try:
                     saver = tf.train.Saver()

@@ -21,6 +21,7 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 # Locally defined classes
 from Wrappers import preprocess
 from Wrappers.Monitor import Monitor
+from Wrappers import Stats
 from Worker import Worker, WorkerThread
 from AC_Network import AC_Network
 from Model import Model

@@ -54,7 +54,6 @@ class Monitor(ObservationWrapper):
             self._is_running = True
 
         try:
-            # self._displayImage(observation)
             self._session_video.write(observation)
         except:
             print("There was an issue generating episode video.")

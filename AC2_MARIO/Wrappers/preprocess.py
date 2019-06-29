@@ -4,14 +4,12 @@
 import numpy as np
 import os
 import cv2
+from collections import deque
 
 import gym
 from gym.core import ObservationWrapper
 from gym.spaces.box import Box
 import tensorflow as tf
-# from matplotlib import pyplot as PLT
-
-
 
 # Preprocessing the Images
 
@@ -55,7 +53,7 @@ class GrayScaleImage(ObservationWrapper):
         
         with tf.Session() as sess:
             img = sess.run(self.cnn_input)
-        # self._displayImage(img)
+
         return img
 
 
@@ -89,7 +87,7 @@ class FrameStack(gym.Wrapper):
         self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
         assert shp[2] == 1  # can only stack 1-channel frames
-        self.observation_space = spaces.Box(low=0, high=255, shape=(shp[0], shp[1], k))
+        self.observation_space = Box(low=0, high=255, shape=(shp[0], shp[1], k))
 
     def _reset(self):
         """Clear buffer and re-fill by duplicating the first observation."""
