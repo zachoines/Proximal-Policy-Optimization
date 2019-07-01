@@ -10,7 +10,7 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, session, model, workers, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
+    def __init__(self, session, model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
         self.sess = session
         self.model = model
         self.model_save_path = model_save_path
@@ -21,6 +21,7 @@ class Coordinator:
         self.batch_size = batch_size
         self.gamma = gamma
         self.total_loss = 0
+        self.plot = plot
     
     
     def train(self, train_data):
@@ -61,13 +62,20 @@ class Coordinator:
 
     def run(self):
         
+        self.plot.start()
+        
         try:
             # Main training loop
             for epoch in range(self.num_epocs):
 
-                # ready workers for the next epoc
+                # ready workers for the next epoc, sync with live plot
+                self.plot.stop_request()
+                
                 for worker in self.workers:
                     worker.reset()
+
+                self.plot.continue_request()
+        
 
                 # loop for generating a training session a batch at a time
                 for mb in range(self.num_minibatches):
@@ -159,6 +167,8 @@ class Coordinator:
             print("ERROR: The coordinator ran into an issue during training!")
             raise  
             return False
+
+        self.plot.join()
         
 
 

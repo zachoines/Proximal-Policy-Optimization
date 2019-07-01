@@ -3,6 +3,7 @@
 
 # Utility python classes
 import threading
+from multiprocessing import Process
 import os
 import numpy as np
 import tensorflow as tf
@@ -22,7 +23,7 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 # Locally defined classes
 from Wrappers import preprocess
 from Wrappers.Monitor import Monitor
-from Wrappers.Stats import Stats, Collector
+from Wrappers.Stats import Stats, Collector, AsynchronousPlot
 from Worker import Worker, WorkerThread
 from AC_Network import AC_Network
 from Model import Model
@@ -46,8 +47,8 @@ env_2 = 'SuperMarioBros-v0'
 env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 
-# env_names = [env_1, env_2, env_3, env_4]
-env_names = [env_1]
+env_names = [env_1, env_2, env_3, env_4]
+# env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -58,8 +59,8 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 4
-num_epocs = 16
+num_minibatches = 64
+num_epocs = 32
 gamma = .99
 learning_rate =  7e-4
 
@@ -75,6 +76,8 @@ sess = tf.Session(config=config)
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
+plot = AsynchronousPlot(collector)
+
 for env in env_names:
     env = gym.make(env)
     env = JoypadSpace(env, CUSTOM_MOVEMENT)
@@ -115,7 +118,7 @@ if not os.path.exists(video_save_path):
 
 # Init coordinator and send out the workers
 workers = [Worker(model, env, batch_size = batch_size, render = False) for env in envs]
-coordinator = Coordinator(sess, model, workers, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
+coordinator = Coordinator(sess, model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
 
 # Train and save
 if coordinator.run():

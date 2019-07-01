@@ -4,14 +4,13 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
 from collections import OrderedDict
+from multiprocessing import Process, Queue, Lock
+import threading
 import time
 
 # OpenAI Gym classes
 import gym
 from gym.core import RewardWrapper
-
-# Local classes
-from Worker import WorkerThread
 
 # An action Wrapper class for environments
 class Stats(RewardWrapper):
@@ -38,83 +37,120 @@ class Stats(RewardWrapper):
         self.CMA = (reward + (( self.numSteps - 1 ) * self.CMA )) / self.numSteps
         return reward
 
-# Class designed to collect along multiple 2d dimentions and graph live results
+class AsynchronousPlot(threading.Thread):
+    def __init__(self, collector):
+        super(AsynchronousPlot, self).__init__()
+        self.collector = collector
+        self.stoprequest = threading.Event()
+         
+    def run(self):
+        # style.use('fivethirtyeight')
+        self._fig = plt.figure()
+        self._ani = animation.FuncAnimation(self._fig, self._update_graph, interval = 1000)
+        plt.show()
+    
+    def continue_request(self):
+        self.stoprequest.clear()
+       
+    def stop_request(self):
+        self.stoprequest.set() 
+        
+    def join(self, timeout=None):
+        self.stoprequest.set()
+        super(AsynchronousPlot, self).join(timeout)
+    
+    def _update_graph(self, i):
+        
+        if not self.stoprequest.isSet():
+            if (len(self.collector.dimensions) > 0):
+                name = self.collector.dimensions[0]
+            else:
+                # Not ready to show anything
+                return
+            data = self.collector.get_dimension(name)
+            axis = self._fig.add_subplot(1,1,1)
+            xar = []
+            yar = []
+
+            for x, y in data.items():
+                xar.append(int(x))
+                yar.append(int(y))
+
+            axis.clear()
+            axis.plot(xar,yar)
+            
+            if (len(self.collector.get_dimensions()) > 1):
+                for name in self.collector.dimensions():
+                    data = self.collector.get_dimension(name)
+                    axis = self._fig.add_subplot(1,1,1)
+                    xar = []
+                    yar = []
+
+                    for x, y in data.items():
+                        xar.append(int(x))
+                        yar.append(int(y))
+
+                    axis.plot(xar,yar)
+
+
+# Data structor for collecting multiple 2d dimentions
 class Collector:
     def __init__(self):
         # datastructure is this: [( Data_name : { x_0 : y_0, x_1 : y_1, ....}), ....]
-        self.current_milli_time = lambda: int(round(time.time() * 1000))
+        self.current_milli_time = lambda: int(round(time.time()))
+        self.tstart = self.current_milli_time()
         self.dimensions = []
         self._data = []
-        
-        # Setup matplotlib stuff here
-        # style.use('fivethirtyeight')
-        # plt.ion()
-        self._fig = plt.figure()
-        self._ani = animation.FuncAnimation(self._fig, self._update_graph, interval = 1000)
-        plt.show(block = False)
-        
-        # plt.show()
 
     def collect(self, name, data):
-        current_time = self.current_milli_time()
+        
+        current_time = self._current_run_time()
 
         if (name not in self.dimensions):
             self.dimensions.append(name)
             entry = (name, OrderedDict([(current_time, data)]))
             self._data.append(entry)
         else:
+            
             dim_values = None
-            for (key, value) in self._data:
-                if key == name:
-                    dim_values = value
-                    break
-                
-            # index = next(key for key, value in self._data if key == name
-            if dim_values != None:
+            
+            try:
+                ( _ , dim_values) = next((value for key, value in enumerate(self._data) if value[0] == name), None)
                 dim_values[current_time] = data 
-
+            except GeneratorExit:
+                pass
+                
+                
+    def get_dimensions(self):
+        return self.dimensions
 
     def get_dimension(self, name):
-        index = next((key for key, value in enumerate(self._data) if value[0] == name), None)
-        (dim_name, dim_values) = self._data[index]
+        dim_values = None
+        try:
+            ( _ , dim_values) = next((value for key, value in enumerate(self._data) if value[0] == name), None)
+        except GeneratorExit:
+            pass
+            
+
         return dim_values
             
     def remove(self, name):
         if name in self.dimensions:
-            index = next((key for key, value in enumerate(self._data) if value[0] == name), None)
-            return self._data.pop(index)
+            try:
+                index = next((key for key, value in enumerate(self._data) if value[0] == name), None)
+                return self._data.pop(index)
+            except GeneratorExit:
+                pass
+            
+            return None
 
-    def _update_graph(self, i):
-        if (len(self.dimensions) > 0):
-            name = self.dimensions[0]
-        else:
-            # Not ready to show anything
-            return
-        data = self.get_dimension(name)
-        axis = self._fig.add_subplot(1,1,1)
-        xar = []
-        yar = []
+    def _current_run_time(self):
+        return (self.current_milli_time() - self.tstart)
+  
+  
 
-        for x, y in data.items():
-            xar.append(int(x))
-            yar.append(int(y))
-
-        axis.clear()
-        axis.plot(xar,yar)
+    
         
-        if (len(self.dimensions > 1)):
-            for name in self.dimensions:
-                data = self.get_dimension(name)
-                axis = self._fig.add_subplot(1,1,1)
-                xar = []
-                yar = []
 
-                for x, y in data.items():
-                    xar.append(int(x))
-                    yar.append(int(y))
-
-                axis.plot(xar,yar)
-        
-        
 
         
