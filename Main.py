@@ -52,8 +52,8 @@ env_names = [env_1, env_2, env_3, env_4]
 
 # Configuration
 current_dir = os.getcwd()
-model_save_path = current_dir + '\AC2_MARIO\Model'
-video_save_path = current_dir + '.\AC2_MARIO\Videos'
+model_save_path = current_dir + '.\Model'
+video_save_path = current_dir + '.\Videos'
 record = True
 
 # Enviromental vars
