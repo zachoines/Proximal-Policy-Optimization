@@ -104,7 +104,7 @@ if not os.path.exists(model_save_path):
     os.makedirs(model_save_path)
 else:
     try:
-        if (model_save_path + "\checkpoint"):
+        if (os.path.exists(model_save_path + "\checkpoint")):
             saver.restore(sess, model_save_path + "\model.ckpt")
             print("Model restored.")
         else:

@@ -23,32 +23,31 @@ class Coordinator:
         self.total_loss = 0
         self.plot = plot
     
+    def dense_to_one_hot(self, labels_dense, num_classes = 8):
+        labels_dense = np.array(labels_dense)
+        num_labels = labels_dense.shape[0]
+        index_offset = np.arange(num_labels) * num_classes
+        labels_one_hot = np.zeros((num_labels, num_classes))
+        labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
+        return labels_one_hot
     
     def train(self, train_data):
         (batch_states,
         batch_actions,
-        batch_advantages) = train_data
+        batch_advantages, batch_rewards) = train_data
         
         # Now perform tensorflow session to determine policy and value loss for this batch
+        # np.ndarray.tolist(self.dense_to_one_hot(batch_actions))
         feed_dict = { 
             self.model.step_policy.X_input: batch_states,
             self.model.step_policy.actions: batch_actions,
+            self.model.step_policy.rewards: batch_rewards,
             self.model.step_policy.advantages: batch_advantages,
         }
         
         # Run tensorflow graph, return loss without updateing gradients 
-        loss, optimizer, entropy, policy_logits = self.sess.run([self.model.step_policy.loss, self.model.step_policy.optimize, self.model.step_policy.entropy, self.model.step_policy.policy_logits], feed_dict)
+        optimizer, loss, entropy, policy_loss, value_loss, log_prob = self.sess.run([self.model.step_policy.optimize, self.model.step_policy.loss, self.model.step_policy.entropy, self.model.step_policy.policy_loss, self.model.step_policy.value_loss, self.model.step_policy.log_prob],  feed_dict)
         self.total_loss += loss
-
-
-    # def discounted_rewards(self, rewards, dones, gamma):
-    #     discounted = []
-    #     r = 0
-
-    #     for reward, done in zip(rewards[::-1], dones[::-1]):
-    #         r = reward + gamma * r * (1. - done) 
-    #         discounted.append(r)
-    #     return np.array(discounted[::-1])
 
     # Produces reversed list of discounted rewards
     def discount(self, x, gamma):
@@ -143,14 +142,14 @@ class Coordinator:
                             batch_advantages = batch_rewards - batch_values
                             
                             # Now perform tensorflow session to determine policy and value loss for this batch
-                            data = (batch_states, batch_actions, batch_advantages)
+                            data = (batch_states, batch_actions, batch_advantages, batch_rewards)
                             self.train(data)
                         
                         else:
 
                             batch_rewards = self.discount(batch_rewards, self.gamma)  
                             batch_advantages = batch_rewards - batch_values
-                            data = (batch_states, batch_actions, batch_advantages)
+                            data = (batch_states, batch_actions, batch_advantages, batch_rewards)
                             self.train(data)
 
                 try:

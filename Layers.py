@@ -79,7 +79,7 @@ def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), paddi
 
 def orthogonal_initializer(scale=1.0):
     def _ortho_init(shape, dtype, partition_info=None):
-        # Orthogonal Initializer that uses SVD. The unused variables are just for passing in tensorflow
+
         shape = tuple(shape)
         if len(shape) == 2:
             flat_shape = shape
@@ -96,12 +96,7 @@ def orthogonal_initializer(scale=1.0):
     return _ortho_init
 
 def max_pool_2d(x, size=(2, 2)):
-    """
-    Max pooling 2D Wrapper
-    :param x: (tf.tensor) The input to the layer (N,H,W,C).
-    :param size: (tuple) This specifies the size of the filter as well as the stride.
-    :return: The output is the same input but halfed in both width and height (N,H/2,W/2,C).
-    """
+
     size_x, size_y = size
     return tf.nn.max_pool(x, ksize=[1, size_x, size_y, 1], strides=[1, size_x, size_y, 1], padding='VALID',
                           name='pooling')
@@ -130,8 +125,3 @@ def openai_entropy(logits):
     z0 = tf.reduce_sum(ea0, 1, keep_dims=True)
     p0 = ea0 / z0
     return tf.reduce_sum(p0 * (tf.log(z0) - a0), 1)
-
-
-def softmax_entropy(p0):
-    # Normal information theory entropy by Shannon
-    return - tf.reduce_sum(p0 * tf.log(p0 + 1e-6), axis=1)
