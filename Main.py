@@ -59,17 +59,23 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 64
+num_minibatches = 128
 num_epocs = 32
 gamma = .99
 learning_rate =  7e-4
 
 # Create a new tf session with graphics enabled
 tf.reset_default_graph()
-config = tf.ConfigProto(allow_soft_placement=True, 
-    intra_op_parallelism_threads=num_envs,
-    inter_op_parallelism_threads=num_envs)
+config = tf.ConfigProto()
+
+# GPU related configuration here:
+config.allow_soft_placement = True 
 config.gpu_options.allow_growth = True
+
+# CPU related configuration here:
+config.intra_op_parallelism_threads = num_envs
+config.inter_op_parallelism_threads = num_envs
+
 sess = tf.Session(config=config)
 
 
@@ -78,11 +84,14 @@ envs = []
 collector = Collector()
 plot = AsynchronousPlot(collector)
 
+# Apply env wrappers
 for env in env_names:
     env = gym.make(env)
-    env = JoypadSpace(env, CUSTOM_MOVEMENT)
+    env = preprocess.FrameSkip(env, 4)
+    env = JoypadSpace(env, SIMPLE_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath = video_save_path,  record = record)
-    env = preprocess.GrayScaleImage(env, sess, height = 128, width = 128, grayscale = True)
+    env = preprocess.GrayScaleImage(env, sess, height = 96, width = 96, grayscale = True)
+    env = preprocess.FrameStack(env, 4)
     env = Stats(env, collector)
     envs.append(env)
 

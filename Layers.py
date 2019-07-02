@@ -36,11 +36,10 @@ def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.
     return dense_o
 
 
-def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), padding = 'VALID', stride = (4, 4),
+def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), padding = 'VALID', stride = (1, 1),
            initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0, bias=0.0,
            activation = tf.nn.relu, max_pool_enabled=False, rate=-1):
 
-    # initializer=orthogonal_initializer(np.sqrt(2))
     stride = [1, stride[0], stride[1], 1]
     kernel_shape = [kernel_size[0], kernel_size[1], x.shape[-1], num_filters]
 
@@ -95,7 +94,7 @@ def orthogonal_initializer(scale=1.0):
 
     return _ortho_init
 
-def max_pool_2d(x, size=(2, 2)):
+def max_pool_2d(x, size=(3, 3)):
 
     size_x, size_y = size
     return tf.nn.max_pool(x, ksize=[1, size_x, size_y, 1], strides=[1, size_x, size_y, 1], padding='VALID',

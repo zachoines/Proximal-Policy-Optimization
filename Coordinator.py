@@ -117,7 +117,7 @@ class Coordinator:
                         done = False
                         for step in mb:
                             (state, observation, reward, [value], action, done) = step
-
+                            # self.displayImage([observation])
                             batch_rewards.append(reward)
                             batch_values.append(value)
                             batch_dones.append(done)

@@ -56,50 +56,43 @@ class GrayScaleImage(ObservationWrapper):
 
         return img
 
-
-class FrameSkip(ObservationWrapper):
+class FrameSkip(gym.Wrapper):
     
-    def __init__(self, env, frame_skips):
+    def __init__(self, env, skipped_frames):
         super(FrameSkip, self).__init__(env)
-        self.k = frame_skips
+        self.n = skipped_frames
 
     def step(self, action):
-        observation, reward, done, info = self.env.step(action)
-        current_observation = observation
-        current_reward = reward
-        current_done = done
-        current_info = info
+        done = False
+        total_reward = 0
+        for _ in range(self.n):
+            o, r, done, info = self.env.step(action)
+            total_reward += r
+            if done: break
+        return o, total_reward, done, info
 
-        for step in range(self.k - 1):
-            current_observation, reward, current_done, current_info = self.env.step(action)
-            current_reward += reward
-
-        return self.observation(current_observation), current_reward, current_done, current_info
-    
-    def observation(self, observation):
-        return self._observation(observation)
 
 class FrameStack(gym.Wrapper):
     def __init__(self, env, k):
         """Buffer observations and stack across channels (last axis)."""
-        gym.Wrapper.__init__(self, env)
+        super(FrameStack, self).__init__(env)
         self.k = k
         self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
-        assert shp[2] == 1  # can only stack 1-channel frames
-        self.observation_space = Box(low=0, high=255, shape=(shp[0], shp[1], k))
+        # self.observation_space = Box(low=0, high=255, shape=(shp[0], shp[1], k))
+        self.observation_space = Box(low=0, high=255, shape=(shp[:-1] + (shp[-1] * k,)), dtype=env.observation_space.dtype)
 
-    def _reset(self):
+    def reset(self):
         """Clear buffer and re-fill by duplicating the first observation."""
         ob = self.env.reset()
         for _ in range(self.k): self.frames.append(ob)
-        return self._observation()
+        return self.observation()
 
-    def _step(self, action):
+    def step(self, action):
         ob, reward, done, info = self.env.step(action)
         self.frames.append(ob)
-        return self._observation(), reward, done, info
+        return self.observation(), reward, done, info
 
-    def _observation(self):
+    def observation(self):
         assert len(self.frames) == self.k
         return np.concatenate(self.frames, axis=2)
