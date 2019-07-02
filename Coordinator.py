@@ -112,6 +112,10 @@ class Coordinator:
 
                         mb = batches[env]
 
+                        # Empty batch
+                        if mb == []:
+                            continue
+
                         # For every step made in this env for this particular batch
                         value = 0 
                         done = False

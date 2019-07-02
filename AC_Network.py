@@ -101,7 +101,7 @@ class AC_Network:
     def step(self, observation, *_args, **_kwargs):
         # Take a step using the model and return the predicted policy and value function
         action, value = self.sess.run([self.action_s, self.value_s], {self.X_input: observation})
-        return action, value  # dummy state
+        return action, value 
 
     def value(self, observation, *_args, **_kwargs):
         # Return the predicted value function for a given observation

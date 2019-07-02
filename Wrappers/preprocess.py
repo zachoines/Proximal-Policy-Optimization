@@ -56,6 +56,7 @@ class GrayScaleImage(ObservationWrapper):
 
         return img
 
+# Class that repeats the same action 'k' times and return the accumulated rewards. Increases efficiency significantly.
 class FrameSkip(gym.Wrapper):
     
     def __init__(self, env, skipped_frames):
@@ -71,19 +72,18 @@ class FrameSkip(gym.Wrapper):
             if done: break
         return o, total_reward, done, info
 
-
+# Class that stacks k grayscale images across channels axis, effectively creating one long image."
 class FrameStack(gym.Wrapper):
     def __init__(self, env, k):
-        """Buffer observations and stack across channels (last axis)."""
+        "Stack across channels"
         super(FrameStack, self).__init__(env)
         self.k = k
         self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
-        # self.observation_space = Box(low=0, high=255, shape=(shp[0], shp[1], k))
         self.observation_space = Box(low=0, high=255, shape=(shp[:-1] + (shp[-1] * k,)), dtype=env.observation_space.dtype)
 
     def reset(self):
-        """Clear buffer and re-fill by duplicating the first observation."""
+        "Duplicating the first observation."
         ob = self.env.reset()
         for _ in range(self.k): self.frames.append(ob)
         return self.observation()
