@@ -46,7 +46,7 @@ class AsynchronousPlot(threading.Thread):
     def run(self):
         # style.use('fivethirtyeight')
         self._fig = plt.figure()
-        self._ani = animation.FuncAnimation(self._fig, self._update_graph, interval = 1000)
+        self._ani = animation.FuncAnimation(self._fig, self._update_graph, interval = 100, save_count=200)
         plt.show()
     
     def continue_request(self):
@@ -56,6 +56,7 @@ class AsynchronousPlot(threading.Thread):
         self.stoprequest.set() 
         
     def join(self, timeout=None):
+        self._ani.save('Results.mp4')
         self.stoprequest.set()
         super(AsynchronousPlot, self).join(timeout)
     

@@ -59,8 +59,8 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 128
-num_epocs = 32
+num_minibatches = 256
+num_epocs = 64
 gamma = .99
 learning_rate =  7e-4
 
@@ -73,8 +73,8 @@ config.allow_soft_placement = True
 config.gpu_options.allow_growth = True
 
 # CPU related configuration here:
-config.intra_op_parallelism_threads = num_envs
-config.inter_op_parallelism_threads = num_envs
+# config.intra_op_parallelism_threads = num_envs
+# config.inter_op_parallelism_threads = num_envs
 
 sess = tf.Session(config=config)
 
