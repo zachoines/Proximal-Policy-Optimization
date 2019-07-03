@@ -73,8 +73,8 @@ config.allow_soft_placement = True
 config.gpu_options.allow_growth = True
 
 # CPU related configuration here:
-# config.intra_op_parallelism_threads = num_envs
-# config.inter_op_parallelism_threads = num_envs
+config.intra_op_parallelism_threads = num_envs
+config.inter_op_parallelism_threads = num_envs
 
 sess = tf.Session(config=config)
 
