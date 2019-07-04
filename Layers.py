@@ -73,9 +73,6 @@ def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), paddi
 
 
 
-
-
-
 def orthogonal_initializer(scale=1.0):
     def _ortho_init(shape, dtype, partition_info=None):
 
@@ -111,11 +108,9 @@ def max_pool(x, size=(2, 2)):
     return tf.nn.max_pool(x, ksize=[1, size_x, size_y, 1], strides=[1, size_x, size_y, 1], padding='VALID',
                           name='pooling')
 
-def noise_and_argmax(logits):
-    # Add noise then take the argmax
-    noise = tf.random_uniform(tf.shape(logits))
-    return tf.argmax(logits - tf.log(-tf.log(noise)), 1)
-
+# TODO:: Make this happen. Using framestacking currently in Main.py.
+def lstm():
+    pass
 
 def openai_entropy(logits):
     # Entropy proposed by OpenAI in their A2C baseline

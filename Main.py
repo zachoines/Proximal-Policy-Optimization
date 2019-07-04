@@ -46,9 +46,10 @@ env_1 = 'SuperMarioBros-v0'
 env_2 = 'SuperMarioBros-v0'
 env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
+env_5 = 'SuperMarioBros-v0'
 
-env_names = [env_1, env_2, env_3, env_4]
-# env_names = [env_1]
+# env_names = [env_1, env_2, env_3, env_4, env_5]
+env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -59,12 +60,13 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 256
-num_epocs = 64
+num_minibatches = 512
+num_epocs = 128
 gamma = .99
 learning_rate =  7e-4
 
 # Create a new tf session with graphics enabled
+tf.logging.set_verbosity(tf.logging.ERROR)
 tf.reset_default_graph()
 config = tf.ConfigProto()
 
@@ -73,8 +75,8 @@ config.allow_soft_placement = True
 config.gpu_options.allow_growth = True
 
 # CPU related configuration here:
-config.intra_op_parallelism_threads = num_envs
-config.inter_op_parallelism_threads = num_envs
+# config.intra_op_parallelism_threads = num_envs
+# config.inter_op_parallelism_threads = num_envs
 
 sess = tf.Session(config=config)
 

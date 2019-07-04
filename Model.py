@@ -7,10 +7,10 @@ class Model:
         self.sess, self.input_shape, self.batch_size, self.num_actions, self.action_space = policy_params
 
         # Local network
-        self.step_policy = AC_Network(self.sess, self.input_shape, self.num_actions, reuse = False, is_training=False, name = "step")
+        self.step_policy = AC_Network(self.sess, self.input_shape, self.num_actions, name = "step")
 
         # global network
-        self.train_policy = AC_Network(self.sess, self.input_shape, self.num_actions, reuse = True, is_training=True, name = "train")
+        self.train_policy = AC_Network(self.sess, self.input_shape, self.num_actions, name = "train")
 
     # Makes a step in the environment
     def step(self, observation):

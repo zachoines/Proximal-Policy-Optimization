@@ -51,8 +51,8 @@ class Worker():
 
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
-                [action], value = self.network.step([self.s])
-                # action = self.action_select(actions)
+                [actions_dist], value = self.network.step([self.s])
+                action = self.action_select(actions_dist)
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
@@ -80,18 +80,16 @@ class Worker():
         return self._batch_buffer
             
 
-    # TODO::Delegate action selction to netork by making a new tensor session to find Boltzmann probabilities action selection
+    # TODO::Delegate action selction to AC_Netork class by making a Boltzmann probabilities action selection
+    # Boltzmann Softmax style action selection
     def action_select(self, softmax):
-        temperature = .7
-        EPSILON = 10e-16 # to avoid taking the log of zero
         
-        (np.array(softmax) + EPSILON).astype('float64')
-        preds = np.log(softmax) / temperature
-        
-        exp_preds = np.exp(preds)
-        
+        temperature = .8
+        exp_preds = np.exp(softmax / temperature)
         preds = exp_preds / np.sum(exp_preds)
         
-        probas = np.random.multinomial(1, preds, 1)
-        return probas[0]
+        [probas] = np.random.multinomial(1, preds, 1)
+        action = np.argmax(probas)
+        
+        return action
 
