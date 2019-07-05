@@ -69,13 +69,13 @@ class AC_Network:
                 self.log_prob = tf.reduce_sum(self.policy * self.actions_hot + 1e-10, [1])
                 
                 # Policy Loss:  ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
-                self.policy_loss = - tf.reduce_sum(tf.log(self.log_prob) * self.advantages)
+                self.policy_loss = tf.reduce_sum(-1.0 * tf.log(self.log_prob) * self.advantages)
                 
                 # Value loss: (1 / 2) * ∑[V(i) - R_i]^2
                 self.value_loss = tf.reduce_sum(tf.square(tf.squeeze(self.value_function) - self.rewards) ) / 2.0
                 
                 # Entropy: - ∑ P_i * Log (P_i)
-                self.entropy = - tf.reduce_sum(self.policy * tf.log(self.policy + + 1e-10))
+                self.entropy = - tf.reduce_sum(self.policy * tf.log(self.policy + 1e-10))
                 
                 # Total loss: Policy loss - entropy * entropy coefficient + value coefficient * value loss
                 self.loss = self.policy_loss - self.entropy * self.entropy_coef + self.value_loss * self.value_function_coeff

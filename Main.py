@@ -84,7 +84,8 @@ sess = tf.Session(config=config)
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-plot = AsynchronousPlot(collector)
+collector.set_dimensions( ["CMA", "LOSS"] )
+plot = AsynchronousPlot(collector, live = True)
 
 # Apply env wrappers
 for env in env_names:

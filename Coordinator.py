@@ -22,6 +22,7 @@ class Coordinator:
         self.gamma = gamma
         self.total_loss = 0
         self.plot = plot
+        
     
     def dense_to_one_hot(self, labels_dense, num_classes = 7):
         labels_dense = np.array(labels_dense)
@@ -48,7 +49,8 @@ class Coordinator:
         
         # Run tensorflow graph, return loss without updateing gradients 
         optimizer, loss, entropy, policy_loss, value_loss, log_prob = self.sess.run([self.model.step_policy.optimize, self.model.step_policy.loss, self.model.step_policy.entropy, self.model.step_policy.policy_loss, self.model.step_policy.value_loss, self.model.step_policy.log_prob],  feed_dict)
-        self.total_loss += loss
+        
+        self.plot.collector.collect("LOSS", loss)
 
     # Produces reversed list of discounted rewards
     def discount(self, x, gamma):
@@ -123,7 +125,6 @@ class Coordinator:
 
                         for step in mb:
                             (state, observation, reward, [value], action, done) = step
-                            # self.displayImage([observation])
                             batch_rewards.append(reward)
                             batch_values.append(value)
                             batch_dones.append(done)
@@ -140,6 +141,9 @@ class Coordinator:
 
                         # Advantage
                         # δ_t == R + γ * V(S_t') - V(S_t): 
+                        
+                        # Or simply... 
+                        # δ_t == G_t - V:      
 
                         if (not done):
                             
@@ -147,21 +151,15 @@ class Coordinator:
 
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
-                            bootstrapped_values = np.asarray(batch_values + [boot_strap])
-                            advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
-                            advantages = self.discount(advantages, self.gamma)
+                            advantages = discounted_rewards - batch_values
 
                             data = (batch_states, batch_actions, advantages, discounted_rewards)
                             self.train(data)
 
-                            # # Bootstrap terminal state value onto list of discounted returns
-                            # batch_rewards[self.batch_size - 1] += boot_strap       
-                            # batch_rewards = self.discount(batch_rewards, self.gamma)  
-                            # batch_advantages = batch_rewards - batch_values
-                            
-                            # # Now perform tensorflow session to determine policy and value loss for this batch
-                            # data = (batch_states, batch_actions, batch_advantages, batch_rewards)
-                            # self.train(data)
+                            # Same as above...
+                            # bootstrapped_values = np.asarray(batch_values + [boot_strap])
+                            # advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
+                            # advantages = self.discount(advantages, self.gamma)
                         
                         else:
                             
@@ -169,28 +167,28 @@ class Coordinator:
 
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
-                            bootstrapped_values = np.asarray(batch_values + [boot_strap])
-                            advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
-                            advantages = self.discount(advantages, self.gamma)
+                            advantages = discounted_rewards - batch_values
 
                             data = (batch_states, batch_actions, advantages, discounted_rewards)
                             self.train(data)
 
-                            # batch_rewards = self.discount(batch_rewards, self.gamma)  
-                            # batch_advantages = batch_rewards - batch_values
-                            # data = (batch_states, batch_actions, batch_advantages, batch_rewards)
-                            # self.train(data)
+                            # Same as above...
+                            # bootstrapped_values = np.asarray(batch_values + [boot_strap])
+                            # advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
+                            # advantages = self.discount(advantages, self.gamma)
 
                 try:
                     saver = tf.train.Saver()
                     save_path = saver.save(self.sess, self.model_save_path + "\model.ckpt")
                     print("Model saved at " + save_path + ".")
+                
                 except:
                     print("ERROR: There was an issue saving the model!")
                     raise
 
             print("Training session was sucessfull.")
             return True
+        
         except:
             print("ERROR: The coordinator ran into an issue during training!")
             raise  

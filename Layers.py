@@ -13,7 +13,7 @@ def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.
 
             collection_name = tf.GraphKeys.REGULARIZATION_LOSSES
             if (not tf.get_variable_scope().reuse):
-                weight_decay = tf.multiply(tf.nn.l2_loss(w), l2_strength, name='w_loss')
+                weight_decay = tf.multiply(tf.nn.l2_loss(w), l2_strength, name = 'w_loss')
                 tf.add_to_collection(collection_name, weight_decay)
 
 
