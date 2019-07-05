@@ -48,8 +48,8 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 env_5 = 'SuperMarioBros-v0'
 
-# env_names = [env_1, env_2, env_3, env_4, env_5]
-env_names = [env_1]
+env_names = [env_1, env_2, env_3, env_4, env_5]
+# env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
