@@ -60,6 +60,9 @@ class FrameSkip(gym.Wrapper):
         super(FrameSkip, self).__init__(env)
         self.n = skipped_frames
 
+    def reset(self):
+        return self.env.reset()
+
     def step(self, action):
         done = False
         total_reward = 0
@@ -84,6 +87,7 @@ class FrameStack(gym.Wrapper):
         ob = self.env.reset()
         for _ in range(self.k): self.frames.append(ob)
         return self.observation()
+        
 
     def step(self, action):
         ob, reward, done, info = self.env.step(action)

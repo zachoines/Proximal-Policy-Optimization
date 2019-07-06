@@ -66,7 +66,7 @@ gamma = .99
 learning_rate =  7e-4
 
 # Create a new tf session with graphics enabled
-tf.logging.set_verbosity(tf.logging.ERROR)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 tf.reset_default_graph()
 config = tf.ConfigProto()
 

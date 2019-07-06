@@ -65,8 +65,8 @@ class AsynchronousPlot(threading.Thread):
                 for name in dims:
 
                     axis = self._fig.add_subplot(2,1, counter)
-                    # line = matplotlib.lines.Line2D([], [], label = name)
-                    line, = axis.plot([0], [0], label = name)
+                    # line = matplotlib.lines.Line2D([0], [0], label = name)
+                    line, = axis.plot([], [], label = name)
                     axis.set_xlabel('time')
                     axis.set_ylabel('data')
                     axis.add_line(line)
@@ -75,8 +75,8 @@ class AsynchronousPlot(threading.Thread):
                     counter += 1
 
             self._ani = animation.FuncAnimation(self._fig, self._update_graph, 
-                interval = 1000, 
-                blit = False, 
+                interval = 50, 
+                blit = True, 
                 save_count = 100,
                 repeat=True)
 
@@ -143,51 +143,54 @@ class AsynchronousPlot(threading.Thread):
                     
                     f.close()
 
-    def _unpack_args(self, *args):
-        return args
+    def _unpack_args(self, *argv):
+        r = argv
+        return r
     
     def _update_graph(self, i):
         
         if not self.stoprequest.isSet():
             
             if (len(self.collector.dimensions) > 0):
-               
+                
                 for name in self.collector.dimensions:
 
-                    data = self.collector.get_dimension(name)
+                    data = self.collector.pop(name)
 
                     if data == None or len(data) == 0:
                         continue
 
-                  
+                    (x, y) = data
 
                     for i in range(len(self._lines)):
                         line = self._lines[i]
+
                         label = line.get_label()
                         
                         if label == name:
-                            xs = []
-                            ys = []
-                            for x, y in data.items():
-                                xs.append(x)
-                                ys.append(y)
+                            
+                            (xs, ys) = line.get_data()
+                            xs = np.append(xs, [x], 0)
+                            ys = np.append(ys, [y], 0)
+
+                            line.set_xdata(xs)
+                            line.set_ydata(ys)
                             
                             self._axis[i].clear()
-                            line, = self._axis[i].plot(xs, ys)
-                            self._lines[i] = line
-                            line.set_label(name)
-                            # line.set_data(x, y)
-            
-
-                return self._unpack_args(*self._lines)
+                            self._axis[i].set_xlim(min(xs), max(xs))
+                            self._axis[i].set_ylim(min(ys), max(ys))
+                            
+                            return self._lines
+                
+                return self._lines
 
             else:
 
                 # Not ready to show anything
-                return self._unpack_args(*self._lines)
+                return self._lines 
 
         else: 
-            return self._unpack_args(*self._lines)
+            return self._lines
         
 
 # Data structor for collecting multiple 2d dimentions
@@ -221,7 +224,14 @@ class Collector:
                 dim_values[current_time] = data 
             except GeneratorExit:
                 pass
-
+    
+    def pop(self, name):
+        data = self.get_dimension(name)
+        
+        if data == None or len(data) == 0:
+            return None
+        
+        return data.popitem(last = True)
 
     def set_dimensions(self, dims):
         self.dimensions = dims
