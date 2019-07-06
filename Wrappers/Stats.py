@@ -230,6 +230,7 @@ class Collector:
         
         if data == None or len(data) == 0:
             return None
+            
         
         return data.popitem(last = True)
 
