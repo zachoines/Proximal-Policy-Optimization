@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
 from collections import OrderedDict
-from multiprocessing import Process, Queue, Lock
+from multiprocessing import Process, Lock
 import threading
 import time
 
@@ -55,7 +55,7 @@ class AsynchronousPlot(threading.Thread):
         # self.writer = Writer(fps=15, metadata=dict(artist='Zach Oines'))
 
         if self._live:
-            self._fig = plt.figure(num = 0, figsize = (12, 8), dpi = 100)
+            self._fig = plt.figure(num = 0, figsize = (10, 6), dpi = 100)
 
             dims = self.collector.get_dimensions()
             
@@ -65,10 +65,12 @@ class AsynchronousPlot(threading.Thread):
                 for name in dims:
 
                     axis = self._fig.add_subplot(2,1, counter)
+                    axis.autoscale_view()
+                    # axis.set_title(name)
                     # line = matplotlib.lines.Line2D([0], [0], label = name)
                     line, = axis.plot([], [], label = name)
                     axis.set_xlabel('time')
-                    axis.set_ylabel('data')
+                    axis.set_ylabel(name)
                     axis.add_line(line)
                     self._lines.append(line)
                     self._axis.append(axis)
@@ -92,13 +94,6 @@ class AsynchronousPlot(threading.Thread):
        
     def stop_request(self):
         self.stoprequest.set() 
-    
-    # if self._live:
-    #         self._ani.save('Results.png', writer = "imagemagick", dpi = 80)
-        
-    #     # Signal the end of internal processes
-    #     self.stoprequest.set()
-    #     self.kill.set()
         
     def join(self, timeout=None):
         
@@ -176,7 +171,6 @@ class AsynchronousPlot(threading.Thread):
                             line.set_xdata(xs)
                             line.set_ydata(ys)
                             
-                            self._axis[i].clear()
                             self._axis[i].set_xlim(min(xs), max(xs))
                             self._axis[i].set_ylim(min(ys), max(ys))
                             
@@ -230,7 +224,7 @@ class Collector:
         
         if data == None or len(data) == 0:
             return None
-            
+
         
         return data.popitem(last = True)
 

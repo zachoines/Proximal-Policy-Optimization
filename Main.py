@@ -28,6 +28,7 @@ from Worker import Worker, WorkerThread
 from AC_Network import AC_Network
 from Model import Model
 from Coordinator import Coordinator
+from test import run
 
 # Define a movement set
 CUSTOM_MOVEMENT = [
@@ -60,7 +61,7 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 512
+num_minibatches = 8
 num_epocs = 128
 gamma = .99
 learning_rate =  7e-4
@@ -89,7 +90,7 @@ plot = AsynchronousPlot(collector, live = True)
 
 # Apply env wrappers
 for env in env_names:
-    env = gym.make(env)
+    env = gym_super_mario_bros.make(env) # gym.make(name), for other env's in the future.
     env = preprocess.FrameSkip(env, 4)
     env = JoypadSpace(env, SIMPLE_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath = video_save_path,  record = record)
@@ -137,5 +138,7 @@ if coordinator.run():
     try:
         save_path = saver.save(sess, model_save_path + "\model.ckpt")
         print("Model saved.")
+        print("Now testing results....")
+        run()
     except:
         print("ERROR: There was an issue saving the model!")

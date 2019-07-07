@@ -41,16 +41,7 @@ class GrayScaleImage(ObservationWrapper):
         img = cv2.resize(img, self.img_size, interpolation = cv2.INTER_AREA)
         img = cv2.normalize(img, None, alpha=0, beta=1, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
         img = img[:, :, np.newaxis] 
-        # img = cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
-        
-        # img = tf.image.resize_images(img, self.img_size, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-        # if self.grayscale:
-        #     img = tf.image.rgb_to_grayscale(img)
-      
-        # img = tf.image.per_image_standardization(img)
-        # cnn_input = tf.expand_dims(img, 0)
-        # img = self.sess.run(img)
-
+   
         return [img]
 
 # Class that repeats the same action 'k' times and return the accumulated rewards. Increases efficiency significantly.
