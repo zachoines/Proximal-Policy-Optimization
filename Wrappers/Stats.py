@@ -46,8 +46,9 @@ class AsynchronousPlot(threading.Thread):
         self._lines = []
         self._axis = []
         self.collector = collector
-        self.stoprequest = threading.Event()
-        self.kill = threading.Event()
+        self._busy = threading.Event()
+        self._stoprequest = threading.Event()
+        self._kill = threading.Event()
          
     def run(self):
         # style.use('fivethirtyeight')
@@ -85,15 +86,15 @@ class AsynchronousPlot(threading.Thread):
             plt.show()
         
         else:
-            while not self.kill.isSet():
+            while not self._kill.isSet():
                 self._write_results()
                 time.sleep(10)
     
     def continue_request(self):
-        self.stoprequest.clear()
+        self._stoprequest.clear()
        
     def stop_request(self):
-        self.stoprequest.set() 
+        self._stoprequest.set() 
         
     def join(self, timeout=None):
         
@@ -101,8 +102,8 @@ class AsynchronousPlot(threading.Thread):
             self._ani.save('Results.png', writer = "imagemagick", dpi = 80)
         
         # Signal the end of internal processes
-        self.stoprequest.set()
-        self.kill.set()
+        self._stoprequest.set()
+        self._kill.set()
 
         super(AsynchronousPlot, self).join(timeout)
 
@@ -110,41 +111,35 @@ class AsynchronousPlot(threading.Thread):
         pass
 
     def _write_results(self):
-        if not self.stoprequest.isSet():
+
+        if not self._stoprequest.isSet():
             
             if (len(self.collector.dimensions) > 0):
                 
                 try:
-                    with open("stats.txt", 'w') as f:
-
-                        for name in self.collector.dimensions:
-
+    
+                    for name in self.collector.dimensions:
+                        
+                        with open(".\stats\\" + name + ".txt", 'a') as f:
                             data = self.collector.get_dimension(name)
 
                             if  data == None or len(data) == 0:
                                 continue
 
-                            f.write(name + ":\n")
-                            
-                            for x, y in data.items():
-                                f.write("\t" + str(x) + ", " + str(y) + "\n")  
+                            while len(data) > 0:
+                                (x, y) = data.popitem(last = True)
+                                f.write(str(x) + ", " + str(y) + "\n")  
                 
                 except:
                     
-                    print("Issue writing results to 'stats.txt'.")
+                    f.close()
+                    print("Issue writing results.")
                     raise
                 
-                finally:
-                    
-                    f.close()
 
-    def _unpack_args(self, *argv):
-        r = argv
-        return r
-    
     def _update_graph(self, i):
         
-        if not self.stoprequest.isSet():
+        if not self._stoprequest.isSet():
             
             if (len(self.collector.dimensions) > 0):
                 

@@ -56,8 +56,7 @@ class Worker():
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
-
-                batch.append((self.s, s_t , reward, value, action, d))
+                batch.append((self.s, s_t , reward / 15.0, value, action, d))
                 s = [s_t]
 
                 # render the env

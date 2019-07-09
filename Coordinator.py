@@ -48,7 +48,7 @@ class Coordinator:
         }
         
         # Run tensorflow graph, return loss without updateing gradients 
-        optimizer, loss, entropy, policy_loss, value_loss, log_prob = self.sess.run([self.model.step_policy.optimize, self.model.step_policy.loss, self.model.step_policy.entropy, self.model.step_policy.policy_loss, self.model.step_policy.value_loss, self.model.step_policy.log_prob],  feed_dict)
+        optimizer, loss, entropy, policy_loss, value_loss, log_prob, self.global_norm = self.sess.run([self.model.step_policy.optimize, self.model.step_policy.loss, self.model.step_policy.entropy, self.model.step_policy.policy_loss, self.model.step_policy.value_loss, self.model.step_policy.log_prob, self.model.step_policy.global_norm],  feed_dict)
         
         self.plot.collector.collect("LOSS", loss)
 

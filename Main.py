@@ -61,7 +61,7 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 8
+num_minibatches = 512
 num_epocs = 128
 gamma = .99
 learning_rate =  7e-4
@@ -76,8 +76,8 @@ config.allow_soft_placement = True
 config.gpu_options.allow_growth = True
 
 # CPU related configuration here:
-# config.intra_op_parallelism_threads = num_envs
-# config.inter_op_parallelism_threads = num_envs
+config.intra_op_parallelism_threads = num_envs
+config.inter_op_parallelism_threads = num_envs
 
 sess = tf.Session(config=config)
 
@@ -86,7 +86,7 @@ sess = tf.Session(config=config)
 envs = []
 collector = Collector()
 collector.set_dimensions( ["CMA", "LOSS"] )
-plot = AsynchronousPlot(collector, live = True)
+plot = AsynchronousPlot(collector, live = False)
 
 # Apply env wrappers
 for env in env_names:
@@ -128,6 +128,9 @@ else:
 
 if not os.path.exists(video_save_path):
     os.makedirs(video_save_path)
+
+if not os.path.exists('.\stats'):
+    os.makedirs('.\stats')
 
 # Init coordinator and send out the workers
 workers = [Worker(model, env, batch_size = batch_size, render = False) for env in envs]
