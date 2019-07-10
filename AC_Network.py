@@ -113,5 +113,5 @@ def boltzmann_action_select(softmax):
 def noise_and_argmax_action_select(logits):
     # Add noise then take the argmax
     noise = tf.random_uniform(tf.shape(logits))
-    return tf.argmax(logits - tf.log(-tf.log(noise)), 1)
+    return tf.argmax(logits - tf.log(-1.0 * tf.log(noise)), 1)
 

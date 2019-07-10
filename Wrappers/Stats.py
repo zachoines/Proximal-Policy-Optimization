@@ -41,7 +41,7 @@ class Stats(RewardWrapper):
 class AsynchronousPlot(threading.Thread):
     def __init__(self, collector, live = False):
         super(AsynchronousPlot, self).__init__()
-        
+        self.current_milli_time = lambda: int(round(time.time() * 1000))
         self._live = live
         self._lines = []
         self._axis = []
@@ -128,7 +128,7 @@ class AsynchronousPlot(threading.Thread):
 
                             while len(data) > 0:
                                 (x, y) = data.popitem(last = True)
-                                f.write(str(x) + ", " + str(y) + "\n")  
+                                f.write(str(self.current_milli_time()) + ", " + str(x) + ", " + str(y) + "\n")  
                 
                 except:
                     
