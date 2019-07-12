@@ -41,7 +41,6 @@ class Stats(RewardWrapper):
 class AsynchronousPlot(threading.Thread):
     def __init__(self, collector, live = False):
         super(AsynchronousPlot, self).__init__()
-        self.current_milli_time = lambda: int(round(time.time() * 1000))
         self._live = live
         self._lines = []
         self._axis = []
@@ -51,9 +50,6 @@ class AsynchronousPlot(threading.Thread):
         self._kill = threading.Event()
          
     def run(self):
-        # style.use('fivethirtyeight')
-        # Writer = animation.writers['html']
-        # self.writer = Writer(fps=15, metadata=dict(artist='Zach Oines'))
 
         if self._live:
             self._fig = plt.figure(num = 0, figsize = (10, 6), dpi = 100)
@@ -127,8 +123,8 @@ class AsynchronousPlot(threading.Thread):
                                 continue
 
                             while len(data) > 0:
-                                (x, y) = data.popitem(last = True)
-                                f.write(str(self.current_milli_time()) + ", " + str(x) + ", " + str(y) + "\n")  
+                                (x, (t, y)) = data.popitem(last = True)
+                                f.write(str(t) + ", " + str(x) + ", " + str(y) + "\n")  
                 
                 except:
                     
@@ -194,11 +190,11 @@ class Collector:
 
     def collect(self, name, data):
         
-        current_time = self._current_run_time()
+        run_time = self.current_run_time()
 
         if (name not in self.dimensions):
             self.dimensions.append(name)
-            entry = (name, OrderedDict([(current_time, data)]))
+            entry = (name, OrderedDict([run_time, (self.current_milli_time(), data)]))
             self._data.append(entry)
 
         elif self.get_dimension(name) == None:
@@ -210,7 +206,7 @@ class Collector:
             
             try:
                 ( _ , dim_values) = next((value for key, value in enumerate(self._data) if value[0] == name), None)
-                dim_values[current_time] = data 
+                dim_values[run_time] = (self.current_milli_time(), data) 
             except GeneratorExit:
                 pass
     
@@ -257,7 +253,7 @@ class Collector:
             
             return None
 
-    def _current_run_time(self):
+    def current_run_time(self):
         return (self.current_milli_time() - self.tstart)
   
   

@@ -41,10 +41,10 @@ class Coordinator:
         # Now perform tensorflow session to determine policy and value loss for this batch
         # np.ndarray.tolist(self.dense_to_one_hot(batch_actions))
         feed_dict = { 
-            self.model.step_policy.X_input: batch_states,
-            self.model.step_policy.actions: batch_actions,
-            self.model.step_policy.rewards: batch_rewards,
-            self.model.step_policy.advantages: batch_advantages,
+            self.model.step_policy.X_input: batch_states.tolist(),
+            self.model.step_policy.actions: batch_actions.tolist(),
+            self.model.step_policy.rewards: batch_rewards.tolist(),
+            self.model.step_policy.advantages: batch_advantages.tolist(),
         }
         
         # Run tensorflow graph, return loss without updateing gradients 
@@ -101,10 +101,10 @@ class Coordinator:
                         batch = thread.join()
                         batches.append(batch)
 
-                    all_advantages = []
-                    all_rewards = []
-                    all_states = []
-                    all_actions = []
+                    all_advantages = np.array([])
+                    all_rewards = np.array([])
+                    all_states = np.array([])
+                    all_actions = np.array([])
 
                     # Calculate discounted rewards for each environment
                     for env in range(self.num_envs):
@@ -157,13 +157,15 @@ class Coordinator:
                             batch_rewards = discounted_rewards
                             batch_advantages = batch_rewards - batch_values
 
-                            # data = (batch_states, batch_actions, advantages, discounted_rewards)
-                            # self.train(data)
-
                             # Same as above...
                             # bootstrapped_values = np.asarray(batch_values + [boot_strap])
                             # advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
                             # advantages = self.discount(advantages, self.gamma)
+
+                            all_advantages= np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
+                            all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
+                            all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
+                            all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
                         
                         else:
                             
@@ -174,16 +176,21 @@ class Coordinator:
                             batch_rewards = discounted_rewards
                             batch_advantages = batch_rewards - batch_values
 
-                        all_advantages.append(batch_advantages)
-                        all_rewards.append(batch_rewards)
-                        # all_states = np.concatenate((all_states, batch_states), 1)
-                        all_states.append(batch_states)
-                        all_actions.append(batch_actions)
+                            all_advantages= np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
+                            all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
+                            all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
+                            all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+
+                        
 
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
                     batch_states = np.array(batch_states)
-                    data = (np.concatenate([np.array(i) for i in all_states]), np.array(all_actions).flatten(), np.array(all_advantages).flatten(), np.array(all_rewards).flatten())
-                    self.train(data) 
+                    data = (all_states, all_actions, all_advantages, all_rewards)
+                    
+                    if data[0].size != 0:
+                        self.train(data) 
+                    else:
+                        break
 
                 try:
                     saver = tf.train.Saver()

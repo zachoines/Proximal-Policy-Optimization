@@ -72,13 +72,14 @@ class AC_Network:
                 self.policy_loss = tf.reduce_mean(-1.0 * tf.log(self.log_prob) * self.advantages)
                 
                 # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-                self.value_loss = tf.reduce_mean(tf.square(tf.squeeze(self.value_function) - self.rewards) ) 
-                
+                # self.value_loss = tf.reduce_mean(tf.square(tf.squeeze(self.value_function) - self.rewards) ) 
+                self.value_loss = tf.reduce_mean(tf.square(self.advantages)) 
+
                 # Entropy: - (1 / n) * ∑ P_i * Log (P_i)
                 self.entropy = - tf.reduce_mean(self.policy * tf.log(self.policy + 1e-10))
                 
                 # Total loss: Policy loss - entropy * entropy coefficient + value coefficient * value loss
-                self.loss = self.policy_loss - ((self.entropy * self.entropy_coef) + (self.value_loss * self.value_function_coeff))
+                self.loss = self.policy_loss + (self.value_loss * self.value_function_coeff) - (self.entropy * self.entropy_coef)
 
                 params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "step")
                 
