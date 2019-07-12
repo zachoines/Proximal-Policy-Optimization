@@ -25,17 +25,17 @@ class AC_Network:
 
         with tf.variable_scope(name):
             self.X_input = tf.placeholder(tf.float32, (None, 96, 384, 1))
-            conv1 = create_conv('conv1', self.X_input, num_filters = 32, kernel_size=(7, 7),
+            conv1 = create_conv('conv1', self.X_input, num_filters = 32, kernel_size=(7, 7 * 4),
                            padding = 'VALID', stride = (1, 1),
-                           initializer = orthogonal_initializer(np.sqrt(2)), activation=tf.nn.relu,
+                           initializer = orthogonal_initializer(np.sqrt(2.0)), activation=tf.nn.relu,
                            max_pool_enabled = True)
 
-            conv2 = create_conv('conv2', conv1, num_filters = 64, kernel_size=(5, 5), padding = 'VALID', stride=(1, 1),
-                           initializer = orthogonal_initializer(np.sqrt(2)), activation = tf.nn.relu,
+            conv2 = create_conv('conv2', conv1, num_filters = 64, kernel_size=(5, 5 * 4), padding = 'VALID', stride=(1, 1),
+                           initializer = orthogonal_initializer(np.sqrt(2.0)), activation = tf.nn.relu,
                            max_pool_enabled = True)
 
-            conv3 = create_conv('conv3', conv2, num_filters = 64, kernel_size=(3, 3), padding = 'VALID', stride=(1, 1),
-                           initializer = orthogonal_initializer(np.sqrt(2)), activation = tf.nn.relu,
+            conv3 = create_conv('conv3', conv2, num_filters = 64, kernel_size=(3, 3 * 4), padding = 'VALID', stride=(1, 1),
+                           initializer = orthogonal_initializer(np.sqrt(2.0)), activation = tf.nn.relu,
                            max_pool_enabled = True)
 
             conv3_flattened = flatten(conv3)
@@ -78,7 +78,7 @@ class AC_Network:
                 self.entropy = - tf.reduce_mean(self.policy * tf.log(self.policy + 1e-10))
                 
                 # Total loss: Policy loss - entropy * entropy coefficient + value coefficient * value loss
-                self.loss = self.policy_loss - self.entropy * self.entropy_coef + self.value_loss * self.value_function_coeff
+                self.loss = self.policy_loss - ((self.entropy * self.entropy_coef) + (self.value_loss * self.value_function_coeff))
 
                 params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "step")
                 

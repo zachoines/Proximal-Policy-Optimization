@@ -101,7 +101,11 @@ class Coordinator:
                         batch = thread.join()
                         batches.append(batch)
 
-                    
+                    all_advantages = []
+                    all_rewards = []
+                    all_states = []
+                    all_actions = []
+
                     # Calculate discounted rewards for each environment
                     for env in range(self.num_envs):
                         done = False
@@ -127,7 +131,6 @@ class Coordinator:
                             (state, observation, reward, [value], action, done) = step
                             batch_rewards.append(reward)
                             batch_values.append(value)
-                            batch_dones.append(done)
                             batch_observations.append(observation)
                             batch_states.append(state)
                             batch_actions.append(action)
@@ -151,10 +154,11 @@ class Coordinator:
 
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
-                            advantages = discounted_rewards - batch_values
+                            batch_rewards = discounted_rewards
+                            batch_advantages = batch_rewards - batch_values
 
-                            data = (batch_states, batch_actions, advantages, discounted_rewards)
-                            self.train(data)
+                            # data = (batch_states, batch_actions, advantages, discounted_rewards)
+                            # self.train(data)
 
                             # Same as above...
                             # bootstrapped_values = np.asarray(batch_values + [boot_strap])
@@ -167,15 +171,19 @@ class Coordinator:
 
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
-                            advantages = discounted_rewards - batch_values
+                            batch_rewards = discounted_rewards
+                            batch_advantages = batch_rewards - batch_values
 
-                            data = (batch_states, batch_actions, advantages, discounted_rewards)
-                            self.train(data)
+                        all_advantages.append(batch_advantages)
+                        all_rewards.append(batch_rewards)
+                        # all_states = np.concatenate((all_states, batch_states), 1)
+                        all_states.append(batch_states)
+                        all_actions.append(batch_actions)
 
-                            # Same as above...
-                            # bootstrapped_values = np.asarray(batch_values + [boot_strap])
-                            # advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
-                            # advantages = self.discount(advantages, self.gamma)
+                    # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
+                    batch_states = np.array(batch_states)
+                    data = (np.concatenate([np.array(i) for i in all_states]), np.array(all_actions).flatten(), np.array(all_advantages).flatten(), np.array(all_rewards).flatten())
+                    self.train(data) 
 
                 try:
                     saver = tf.train.Saver()
