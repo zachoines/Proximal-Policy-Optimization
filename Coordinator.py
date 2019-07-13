@@ -21,8 +21,7 @@ class Coordinator:
         self.batch_size = batch_size
         self.gamma = gamma
         self.total_loss = 0
-        self.plot = plot
-        
+        self.plot = plot        
     
     def dense_to_one_hot(self, labels_dense, num_classes = 7):
         labels_dense = np.array(labels_dense)
@@ -31,7 +30,8 @@ class Coordinator:
         labels_one_hot = np.zeros((num_labels, num_classes))
         labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
         return labels_one_hot
-    
+ 
+
     def train(self, train_data):
 
         (batch_states,
@@ -41,6 +41,7 @@ class Coordinator:
         # Now perform tensorflow session to determine policy and value loss for this batch
         # np.ndarray.tolist(self.dense_to_one_hot(batch_actions))
         feed_dict = { 
+            self.model.step_policy.keep_per: 1.0,
             self.model.step_policy.X_input: batch_states.tolist(),
             self.model.step_policy.actions: batch_actions.tolist(),
             self.model.step_policy.rewards: batch_rewards.tolist(),
@@ -48,7 +49,14 @@ class Coordinator:
         }
         
         # Run tensorflow graph, return loss without updateing gradients 
-        optimizer, loss, entropy, policy_loss, value_loss, log_prob, self.global_norm = self.sess.run([self.model.step_policy.optimize, self.model.step_policy.loss, self.model.step_policy.entropy, self.model.step_policy.policy_loss, self.model.step_policy.value_loss, self.model.step_policy.log_prob, self.model.step_policy.global_norm],  feed_dict)
+        optimizer, loss, entropy, policy_loss, value_loss, neg_log_prob, global_norm = self.sess.run(
+            [self.model.step_policy.optimize,
+             self.model.step_policy.loss, 
+             self.model.step_policy.entropy, 
+             self.model.step_policy.policy_loss, 
+             self.model.step_policy.value_loss, 
+             self.model.step_policy.neg_log_prob, 
+             self.model.step_policy.global_norm], feed_dict)
         
         self.plot.collector.collect("LOSS", loss)
 
@@ -112,13 +120,12 @@ class Coordinator:
                         batch_advantages = []
                         batch_rewards = []
                         batch_values = []
-                        batch_dones = []
                         batch_observations = []
                         batch_states = []
                         batch_actions = []
 
                         mb = batches[env]
-
+                        
                         # Empty batch
                         if mb == []:
                             continue
@@ -126,6 +133,8 @@ class Coordinator:
                         # For every step made in this env for this particular batch
                         done = False
                         state = None
+                        value = None
+                        observation = None
 
                         for step in mb:
                             (state, observation, reward, [value], action, done) = step
@@ -150,8 +159,7 @@ class Coordinator:
 
                         if (not done):
                             
-                            [boot_strap] = self.model.value([state])
-
+                            [boot_strap] = self.model.value([observation], 1.0)
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
@@ -181,8 +189,6 @@ class Coordinator:
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
 
-                        
-
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
                     batch_states = np.array(batch_states)
                     data = (all_states, all_actions, all_advantages, all_rewards)
@@ -202,13 +208,12 @@ class Coordinator:
                     raise
 
             print("Training session was sucessfull.")
-            return True
-        
+            return True 
+
         except:
             print("ERROR: The coordinator ran into an issue during training!")
-            raise  
+            raise
       
-
         self.plot.join()
         
 

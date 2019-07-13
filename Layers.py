@@ -3,7 +3,7 @@ import numpy as np
 
 
 def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0,
-          bias=0.0, activation=None, rate=-1):
+          bias=0.0, activation=None, keep_per=-1):
     with tf.variable_scope(name) as scope:
         n_in = x.get_shape()[-1].value
 
@@ -27,8 +27,8 @@ def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.
         else:
             dense_a = activation(dense_o_b)
 
-        if rate != -1:
-            dense_o_dr = tf.nn.dropout(dense_a, rate)
+        if keep_per != -1:
+            dense_o_dr = tf.nn.dropout(dense_a, keep_per)
         else:
             dense_o_dr = dense_a
 
@@ -38,7 +38,7 @@ def create_dense(name, x, w=None, output_dim=128, initializer=tf.contrib.layers.
 
 def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), padding = 'VALID', stride = (1, 1),
            initializer=tf.contrib.layers.xavier_initializer(), l2_strength=0.0, bias=0.0,
-           activation = tf.nn.relu, max_pool_enabled=False, rate=-1):
+           activation = tf.nn.relu, max_pool_enabled=False, keep_per=-1):
 
     stride = [1, stride[0], stride[1], 1]
     kernel_shape = [kernel_size[0], kernel_size[1], x.shape[-1], num_filters]
@@ -60,8 +60,8 @@ def create_conv(name, x, w = None, num_filters = 32, kernel_size = (8, 8), paddi
             conv_o_b = tf.nn.bias_add(conv, bias)
             conv_a = activation(conv_o_b)
 
-            if rate != -1:
-                conv_o_dr = tf.nn.dropout(conv_a, rate = rate)
+            if keep_per != -1:
+                conv_o_dr = tf.nn.dropout(conv_a, keep_per)
             else:
                 conv_o_dr = conv_a
 
@@ -112,7 +112,15 @@ def max_pool(x, size=(2, 2)):
 def lstm():
     pass
 
+def batch_norm(x, name=None, gamma = .99):
+    variance_epsilon = 1e-3
+    scale = gamma
+    mean, variance = tf.nn.moments(x, axes = [0, 1, 2], keepdims=True)
+    bn = tf.nn.batch_normalization(x, mean, variance, offset, scale, variance_epsilon, name)
+    return bn
+
 def openai_entropy(logits):
+    # https://github.com/openai/baselines/blob/c57528573ea695b19cd03e98dae48f0082fb2b5e/baselines/common/distributions.py#L193
     # Entropy proposed by OpenAI in their A2C baseline
     a0 = logits - tf.reduce_max(logits, 1, keep_dims=True)
     ea0 = tf.exp(a0)

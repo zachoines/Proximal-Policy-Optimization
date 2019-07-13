@@ -22,19 +22,36 @@ class WorkerThread(Thread):
 # Class to represent a worker in an environment. Call run() to generate a batch. 
 class Worker():
 
-    def __init__(self, network, env, batch_size = 32, render = True):
+    def __init__(self, network, env, anneling_steps, batch_size = 32, render = True):
 
         # Epsisode collected variables
         self._batch_buffer = []
         self._done = False
         self._render = render
-
+        self.total_steps = 0
         self.network = network
         self.env = env
         self.batch_size = batch_size 
         self.s = None
         self.NUM_ACTIONS = env.action_space.n
         self.NONE_STATE = np.zeros(self.env.observation_space.shape)
+        self._currentE = 1.0
+        self.anneling_steps = anneling_steps # How many steps of training to reduce startE to endE.
+
+    # Anneal dropout for optimized exploration in a bayesian network
+    def _keep_prob(self):
+        keep_per = lambda: (1.0 - self._currentE) + 0.1
+
+        startE = 1.0 # Random action chance
+        endE = 0.1 # Final chance of random action
+        pre_train_steps = 0 # Number of steps used before anneling begins
+        stepDrop = (startE - endE) / self.anneling_steps
+
+        if self._currentE > endE and self.total_steps > pre_train_steps:
+            self._currentE -= stepDrop
+            return keep_per()
+        else:
+            return 1.0 
         
 
     # Reset worker and evironment variables in preperation for a new epoc
@@ -51,12 +68,13 @@ class Worker():
 
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
-                [actions_dist], value = self.network.step([self.s])
+                self.total_steps += 1
+                [actions_dist], value = self.network.step([self.s], self._keep_prob())
                 action = self.action_select(actions_dist)
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
-                batch.append((self.s, s_t , reward / 15.0, value, action, d))
+                batch.append((self.s, s_t , reward, value, action, d))
                 s = [s_t]
 
                 # render the env

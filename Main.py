@@ -62,9 +62,9 @@ record = True
 num_envs = len(env_names)
 batch_size = 16
 num_minibatches = 512
-num_epocs = 128
+num_epocs = 32
 gamma = .99
-learning_rate =  7e-4
+learning_rate = 7e-4
 
 # Create a new tf session with graphics enabled
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -85,7 +85,7 @@ sess = tf.Session(config=config)
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions( ["CMA", "LOSS"] )
+collector.set_dimensions(["CMA", "LOSS"])
 plot = AsynchronousPlot(collector, live = False)
 
 # Apply env wrappers
@@ -94,7 +94,7 @@ for env in env_names:
     env = preprocess.FrameSkip(env, 4)
     env = JoypadSpace(env, SIMPLE_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath = video_save_path,  record = record)
-    env = preprocess.GrayScaleImage(env, sess, height = 96, width = 96, grayscale = True)
+    env = preprocess.GrayScaleImage(env, sess, height=96, width=96, grayscale=True)
     env = preprocess.FrameStack(env, 4)
     env = Stats(env, collector)
     envs.append(env)
@@ -133,7 +133,8 @@ if not os.path.exists('.\stats'):
     os.makedirs('.\stats')
 
 # Init coordinator and send out the workers
-workers = [Worker(model, env, batch_size = batch_size, render = False) for env in envs]
+anneling_steps = num_epocs * num_minibatches * batch_size
+workers = [Worker(model, env, anneling_steps, batch_size=batch_size, render=False) for env in envs]
 coordinator = Coordinator(sess, model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
 
 # Train and save

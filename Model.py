@@ -13,12 +13,12 @@ class Model:
         self.train_policy = AC_Network(self.sess, self.input_shape, self.num_actions, name = "train")
 
     # Makes a step in the environment
-    def step(self, observation):
-        return self.step_policy.step(observation)
+    def step(self, observation, keep_per):
+        return self.step_policy.step(observation, keep_per)
 
     # Returns the critic estimation of the current state value
-    def value(self, observation):
-        return self.step_policy.value(observation)
+    def value(self, observation, keep_per):
+        return self.step_policy.value(observation, keep_per)
 
     # Used to copy over global variables to local network 
     def refresh_local_network_params(self):
