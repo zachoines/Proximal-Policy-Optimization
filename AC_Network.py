@@ -4,7 +4,7 @@ import tensorflow.keras.backend as k
 from Layers import openai_entropy
 
 class AC_Network:
-    def __init__(self, input_shape, num_actions, sess, is_training=True, name='train'):
+    def __init__(self, input_shape, num_actions, sess, is_training=True, model = None):
         self.input_shape = input_shape
         self.value_s = None
         self.action_s = None

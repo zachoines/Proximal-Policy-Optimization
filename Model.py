@@ -3,12 +3,24 @@ from AC_Network import AC_Network
 
 # Defines the backpropagation step.
 class Model:
-    def __init__(self, policy_params, sess):
+    def __init__(self, policy_params, sess, network = None):
         self.sess = sess
         self.input_shape, self.batch_size, self.num_actions, self.action_space = policy_params
 
-        # Local network
-        self.network = step_policy = AC_Network(self.input_shape, self.num_actions, sess)
+        if not network:
+            self.network = AC_Network(self.input_shape, self.num_actions, sess)
+        else:
+            self.network = AC_Network(self.input_shape, self.num_actions, sess)
+            self.network.model = tf.keras.models.clone_model(network.model)
+    
+    def get_weights(self):
+        return self.network.model.get_weights()
+
+    def set_weights(self, weights):
+        self.network.model.set_weights(weights)
+
+    def get_network(self):
+        return self.network
 
     # Makes a step in the environment
     def step(self, observation, keep_per):
@@ -21,14 +33,4 @@ class Model:
         value = self.sess.run(self.network.value, {self.network.input_def: observation, self.network.keep_prob: 1.0})
         return value[-1]
 
-    # Used to copy over global variables to local network 
-    def refresh_local_network_params(self):
-        pass
-        # from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "train")
-        # to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "step")
-        # op_holder = []
-        # for from_var, to_var in zip(from_vars,to_vars):
-        #     op_holder.append(to_var.assign(from_var))
-        
-        # with tf.keras.backend.get_session() as sess:
-        #     sess.run(op_holder)
+    

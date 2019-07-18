@@ -93,10 +93,6 @@ ACTION_SPACE = envs[0].env.action_space
 NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)
 
 
-
-
-
-
 # Load model if exists
 # saver = tf.train.Saver()
 if not os.path.exists(model_save_path):
@@ -121,11 +117,7 @@ if not os.path.exists('.\stats'):
 # Init coordinator and send out the workers
 anneling_steps = num_epocs * num_minibatches * batch_size
 
-# for env in envs:
-#     model_copy = keras.models.clone_model(model)
-#     model_copy.set_weights(model.get_weights())
-
-K.manual_variable_initialization(True)
+# K.manual_variable_initialization(True)
 workers = []
 network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 tf.reset_default_graph()
@@ -138,17 +130,19 @@ device = gpus[0] if gpus else "cpu"
 with tf.device(device):
     Train_Model = Model(network_params, main_sess)
 
+step_models = []
 for env in envs:
-    # with k.get_session() as sess:
-    Step_Model = Model(network_params, main_sess)
+    
+    step_Model = Model(network_params, main_sess, Train_Model.get_network()) 
+    step_models.append(step_Model)
     gpus = get_available_gpus()
     device = gpus[0] if gpus else "cpu"
     with tf.device(device):
-        workers.append(Worker(Step_Model, env, anneling_steps, batch_size=batch_size, render=False))
+        workers.append(Worker(step_Model, env, anneling_steps, batch_size=batch_size, render=False))
 
 main_sess.run(tf.global_variables_initializer())
 
-coordinator = Coordinator(Train_Model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
+coordinator = Coordinator(Train_Model, step_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
 
 
 # Train and save

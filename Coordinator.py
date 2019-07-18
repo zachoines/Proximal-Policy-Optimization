@@ -13,8 +13,9 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
-        self.model = model
+    def __init__(self, model, step_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
+        self.global_model = model
+        self.local_models = step_models
         self.model_save_path = model_save_path
         self.workers = workers
         self.num_envs = num_envs
@@ -33,6 +34,11 @@ class Coordinator:
         labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
         return labels_one_hot
 
+    # Used to copy over global variables to local network 
+    def refresh_local_network_params(self):
+        for model in self.local_models:
+            model.set_weights(self.global_model.get_weights())
+       
     def train(self, train_data):
 
         (batch_states,
@@ -42,22 +48,22 @@ class Coordinator:
         # Now perform tensorflow session to determine policy and value loss for this batch
         # np.ndarray.tolist(self.dense_to_one_hot(batch_actions))
         feed_dict = { 
-            self.model.step_policy.keep_per: 1.0,
-            self.model.step_policy.X_input: batch_states.tolist(),
-            self.model.step_policy.actions: batch_actions.tolist(),
-            self.model.step_policy.rewards: batch_rewards.tolist(),
-            self.model.step_policy.advantages: batch_advantages.tolist(),
+            self.global_model.step_policy.keep_per: 1.0,
+            self.global_model.step_policy.X_input: batch_states.tolist(),
+            self.global_model.step_policy.actions: batch_actions.tolist(),
+            self.global_model.step_policy.rewards: batch_rewards.tolist(),
+            self.global_model.step_policy.advantages: batch_advantages.tolist(),
         }
         
         # Run tensorflow graph, return loss without updateing gradients 
         optimizer, loss, entropy, policy_loss, value_loss, neg_log_prob, global_norm = self.sess.run(
-            [self.model.step_policy.optimize,
-             self.model.step_policy.loss, 
-             self.model.step_policy.entropy, 
-             self.model.step_policy.policy_loss, 
-             self.model.step_policy.value_loss, 
-             self.model.step_policy.neg_log_prob, 
-             self.model.step_policy.global_norm], feed_dict)
+            [self.global_model.step_policy.optimize,
+             self.global_model.step_policy.loss, 
+             self.global_model.step_policy.entropy, 
+             self.global_model.step_policy.policy_loss, 
+             self.global_model.step_policy.value_loss, 
+             self.global_model.step_policy.neg_log_prob, 
+             self.global_model.step_policy.global_norm], feed_dict)
         
         self.plot.collector.collect("LOSS", loss)
 
@@ -92,7 +98,7 @@ class Coordinator:
                 for mb in range(self.num_minibatches):
 
                     # Copy global network over to local network
-                    self.model.refresh_local_network_params()
+                    self.refresh_local_network_params()
 
                     # Send workers out to threads
                     threads = []
@@ -159,7 +165,7 @@ class Coordinator:
                         # δ_t == G_t - V:      
 
                         if (not done):
-                            [boot_strap] = self.model.value([observation])
+                            [boot_strap] = self.global_model.value([observation])
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
