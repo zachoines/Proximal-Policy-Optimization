@@ -15,7 +15,7 @@ import tensorflow as tf
 
 class GrayScaleImage(ObservationWrapper):
     
-    def __init__(self, env, sess, height = 96, width = 96, grayscale = True):
+    def __init__(self, env, height = 96, width = 96, grayscale = True):
         super(GrayScaleImage, self).__init__(env)
 
         with tf.name_scope("cnn_input"):
@@ -24,11 +24,9 @@ class GrayScaleImage(ObservationWrapper):
         self.grayscale = grayscale
         n_channels = 1 if self.grayscale else 3
         self.observation_space = Box(0.0, 1.0, [height, width, n_channels])
-        self.sess = sess
     
     # for debugging processed images
     def _displayImage(self, img):
-        # img = self.sess.run(img)
         cv2.imshow('image', img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()

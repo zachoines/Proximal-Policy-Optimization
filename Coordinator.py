@@ -1,7 +1,10 @@
 import tensorflow as tf
+import tensorflow.keras as k
 import numpy as np
 import cv2
 import scipy.signal
+import tensorflow.keras as keras
+import tensorflow.keras.backend as k
 
 # import local classes
 from Model import Model
@@ -10,8 +13,7 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, session, model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
-        self.sess = session
+    def __init__(self, model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
         self.model = model
         self.model_save_path = model_save_path
         self.workers = workers
@@ -30,7 +32,6 @@ class Coordinator:
         labels_one_hot = np.zeros((num_labels, num_classes))
         labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
         return labels_one_hot
- 
 
     def train(self, train_data):
 
@@ -137,7 +138,7 @@ class Coordinator:
                         observation = None
 
                         for step in mb:
-                            (state, observation, reward, [value], action, done) = step
+                            (state, observation, reward, value, action, done) = step
                             batch_rewards.append(reward)
                             batch_values.append(value)
                             batch_observations.append(observation)
@@ -158,8 +159,7 @@ class Coordinator:
                         # δ_t == G_t - V:      
 
                         if (not done):
-                            
-                            [boot_strap] = self.model.value([observation], 1.0)
+                            [boot_strap] = self.model.value([observation])
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
@@ -199,8 +199,8 @@ class Coordinator:
                         break
 
                 try:
-                    saver = tf.train.Saver()
-                    save_path = saver.save(self.sess, self.model_save_path + "\model.ckpt")
+                    # saver = tf.train.Saver()
+                    # save_path = saver.save(self.sess, self.model_save_path + "\model.ckpt")
                     print("Model saved at " + save_path + ".")
                 
                 except:

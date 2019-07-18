@@ -7,18 +7,17 @@ from multiprocessing import Process
 import os
 import numpy as np
 import tensorflow as tf
-import cv2
-import matplotlib.pyplot as plt
+import tensorflow.keras as keras
+import tensorflow.keras.backend as K
+from tensorflow.python.client import device_lib
+
 
 # Importing the packages for OpenAI and MARIO
 import gym
-from gym import wrappers
-import tensorflow as tf
-import numpy as np
-# from nes_py.wrappers import BinarySpaceToDiscreteSpaceEnv
 from nes_py.wrappers import JoypadSpace
 import gym_super_mario_bros
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
+
 
 # Locally defined classes
 from Wrappers import preprocess
@@ -28,7 +27,13 @@ from Worker import Worker, WorkerThread
 from AC_Network import AC_Network
 from Model import Model
 from Coordinator import Coordinator
-from test import run
+
+
+
+def get_available_gpus():
+    local_device_protos = device_lib.list_local_devices()
+    return [x.name for x in local_device_protos if x.device_type == 'GPU']
+
 
 # Define a movement set
 CUSTOM_MOVEMENT = [
@@ -49,8 +54,7 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 env_5 = 'SuperMarioBros-v0'
 
-env_names = [env_1, env_2, env_3, env_4]
-# env_names = [env_1]
+env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -66,22 +70,6 @@ num_epocs = 32
 gamma = .99
 learning_rate = 7e-4
 
-# Create a new tf session with graphics enabled
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-tf.reset_default_graph()
-config = tf.ConfigProto()
-
-# GPU related configuration here:
-config.allow_soft_placement = True 
-config.gpu_options.allow_growth = True
-
-# CPU related configuration here:
-config.intra_op_parallelism_threads = num_envs
-config.inter_op_parallelism_threads = num_envs
-
-sess = tf.Session(config=config)
-
-
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
@@ -94,7 +82,7 @@ for env in env_names:
     env = preprocess.FrameSkip(env, 4)
     env = JoypadSpace(env, SIMPLE_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath = video_save_path,  record = record)
-    env = preprocess.GrayScaleImage(env, sess, height=96, width=96, grayscale=True)
+    env = preprocess.GrayScaleImage(env, height=96, width=96, grayscale=True)
     env = preprocess.FrameStack(env, 4)
     env = Stats(env, collector)
     envs.append(env)
@@ -105,20 +93,18 @@ ACTION_SPACE = envs[0].env.action_space
 NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)
 
 
-# Init the Network, model, and Workers, starting them onto their own thread
-network_params = (sess, NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
-model = Model(network_params)
-sess.run(tf.global_variables_initializer())
+
+
 
 
 # Load model if exists
-saver = tf.train.Saver()
+# saver = tf.train.Saver()
 if not os.path.exists(model_save_path):
     os.makedirs(model_save_path)
 else:
     try:
         if (os.path.exists(model_save_path + "\checkpoint")):
-            saver.restore(sess, model_save_path + "\model.ckpt")
+            # saver.restore(sess, model_save_path + "\model.ckpt")
             print("Model restored.")
         else:
             print("Creating new model.")
@@ -134,15 +120,42 @@ if not os.path.exists('.\stats'):
 
 # Init coordinator and send out the workers
 anneling_steps = num_epocs * num_minibatches * batch_size
-workers = [Worker(model, env, anneling_steps, batch_size=batch_size, render=False) for env in envs]
-coordinator = Coordinator(sess, model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
+
+# for env in envs:
+#     model_copy = keras.models.clone_model(model)
+#     model_copy.set_weights(model.get_weights())
+
+K.manual_variable_initialization(True)
+workers = []
+network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
+tf.reset_default_graph()
+config=tf.ConfigProto(allow_soft_placement=True)
+main_sess = tf.Session(config=config)
+
+# K.set_session(main_sess)
+gpus = get_available_gpus()
+device = gpus[0] if gpus else "cpu"
+with tf.device(device):
+    Train_Model = Model(network_params, main_sess)
+
+for env in envs:
+    # with k.get_session() as sess:
+    Step_Model = Model(network_params, main_sess)
+    gpus = get_available_gpus()
+    device = gpus[0] if gpus else "cpu"
+    with tf.device(device):
+        workers.append(Worker(Step_Model, env, anneling_steps, batch_size=batch_size, render=False))
+
+main_sess.run(tf.global_variables_initializer())
+
+coordinator = Coordinator(Train_Model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
+
 
 # Train and save
 if coordinator.run():
     try:
-        save_path = saver.save(sess, model_save_path + "\model.ckpt")
+        # save_path = saver.save(sess, model_save_path + "\model.ckpt")
         print("Model saved.")
         print("Now testing results....")
-        run()
     except:
         print("ERROR: There was an issue saving the model!")
