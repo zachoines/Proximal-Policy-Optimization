@@ -1,3 +1,4 @@
+import os
 import tensorflow as tf
 from AC_Network import AC_Network
 
@@ -32,5 +33,25 @@ class Model:
     def value(self, observation):
         value = self.sess.run(self.network.value, {self.network.input_def: observation, self.network.keep_prob: 1.0})
         return value[-1]
+
+    def get_weights(self):
+        return self.network.model.get_weights()
+
+    def set_weights(self, weights):
+        self.network.model.set_weights(weights)
+
+    def get_network(self):
+        return self.network
+
+    def save_model(self):
+        current_dir = os.getcwd()
+        model_save_path = current_dir + '\Model\checkpoint.h5'
+        self.get_network().model.save_weights(model_save_path)
+
+    def load_model(self):
+        current_dir = os.getcwd()
+        model_save_path = current_dir + '\Model\checkpoint.h5'
+        loaded_model = tf.keras.models.load_weights(model_save_path)
+        self.get_network().model.set_weights(loaded_model) 
 
     

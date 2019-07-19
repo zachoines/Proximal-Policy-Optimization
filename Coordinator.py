@@ -43,27 +43,28 @@ class Coordinator:
 
         (batch_states,
         batch_actions,
-        batch_advantages, batch_rewards) = train_data
+        batch_advantages, batch_rewards, batch_values) = train_data
         
         # Now perform tensorflow session to determine policy and value loss for this batch
         # np.ndarray.tolist(self.dense_to_one_hot(batch_actions))
         feed_dict = { 
-            self.global_model.step_policy.keep_per: 1.0,
-            self.global_model.step_policy.X_input: batch_states.tolist(),
-            self.global_model.step_policy.actions: batch_actions.tolist(),
-            self.global_model.step_policy.rewards: batch_rewards.tolist(),
-            self.global_model.step_policy.advantages: batch_advantages.tolist(),
+            self.global_model.get_network().keep_prob: 1.0,
+            self.global_model.get_network().input_def: batch_states.tolist(),
+            self.global_model.get_network().actions: batch_actions.tolist(),
+            self.global_model.get_network().rewards: batch_rewards.tolist(),
+            self.global_model.get_network().values: batch_values.tolist(),
+            self.global_model.get_network().advantages: batch_advantages.tolist(),
         }
         
         # Run tensorflow graph, return loss without updateing gradients 
-        optimizer, loss, entropy, policy_loss, value_loss, neg_log_prob, global_norm = self.sess.run(
-            [self.global_model.step_policy.optimize,
-             self.global_model.step_policy.loss, 
-             self.global_model.step_policy.entropy, 
-             self.global_model.step_policy.policy_loss, 
-             self.global_model.step_policy.value_loss, 
-             self.global_model.step_policy.neg_log_prob, 
-             self.global_model.step_policy.global_norm], feed_dict)
+        optimizer, loss, policy_loss, value_loss, neg_log_prob, global_norm = self.global_model.sess.run(
+            [self.global_model.get_network().optimize,
+             self.global_model.get_network().loss, 
+             # self.global_model.get_network().entropy, 
+             self.global_model.get_network().policy_loss, 
+             self.global_model.get_network().value_loss, 
+             self.global_model.get_network().neg_log_prob, 
+             self.global_model.get_network().global_norm], feed_dict)
         
         self.plot.collector.collect("LOSS", loss)
 
@@ -116,6 +117,7 @@ class Coordinator:
                         batch = thread.join()
                         batches.append(batch)
 
+                    all_values = np.array([])
                     all_advantages = np.array([])
                     all_rewards = np.array([])
                     all_states = np.array([])
@@ -180,6 +182,7 @@ class Coordinator:
                             all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+                            all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
                         
                         else:
                             
@@ -194,10 +197,12 @@ class Coordinator:
                             all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+                            all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
+
 
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
                     batch_states = np.array(batch_states)
-                    data = (all_states, all_actions, all_advantages, all_rewards)
+                    data = (all_states, all_actions, all_advantages, all_rewards, all_values)
                     
                     if data[0].size != 0:
                         self.train(data) 
@@ -207,7 +212,7 @@ class Coordinator:
                 try:
                     # saver = tf.train.Saver()
                     # save_path = saver.save(self.sess, self.model_save_path + "\model.ckpt")
-                    print("Model saved at " + save_path + ".")
+                    print("Model saved")
                 
                 except:
                     print("ERROR: There was an issue saving the model!")
