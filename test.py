@@ -24,6 +24,7 @@ from Wrappers import preprocess
 from Worker import Worker, WorkerThread
 from AC_Network import AC_Network
 
+tf.enable_eager_execution()
 
 class Coordinator:
     def __init__(self, model, workers,  num_envs, num_epocs, num_minibatches, batch_size, gamma):
@@ -53,23 +54,23 @@ class Coordinator:
         
         # Now perform tensorflow session to determine policy and value loss for this batch
         # np.ndarray.tolist(self.dense_to_one_hot(batch_actions))
-        feed_dict = { 
-            self.model.step_policy.keep_per: 1.0,
-            self.model.step_policy.X_input: batch_states.tolist(),
-            self.model.step_policy.actions: batch_actions.tolist(),
-            self.model.step_policy.rewards: batch_rewards.tolist(),
-            self.model.step_policy.advantages: batch_advantages.tolist(),
-        }
+        # feed_dict = { 
+        #     self.model.step_policy.keep_per: 1.0,
+        #     self.model.step_policy.X_input: batch_states.tolist(),
+        #     self.model.step_policy.actions: batch_actions.tolist(),
+        #     self.model.step_policy.rewards: batch_rewards.tolist(),
+        #     self.model.step_policy.advantages: batch_advantages.tolist(),
+        # }
         
-        # Run tensorflow graph, return loss without updateing gradients 
-        optimizer, loss, entropy, policy_loss, value_loss, neg_log_prob, global_norm = self.sess.run(
-            [self.model.step_policy.optimize,
-             self.model.step_policy.loss, 
-             self.model.step_policy.entropy, 
-             self.model.step_policy.policy_loss, 
-             self.model.step_policy.value_loss, 
-             self.model.step_policy.neg_log_prob, 
-             self.model.step_policy.global_norm], feed_dict)
+        # # Run tensorflow graph, return loss without updateing gradients 
+        # optimizer, loss, entropy, policy_loss, value_loss, neg_log_prob, global_norm = self.sess.run(
+        #     [self.model.step_policy.optimize,
+        #      self.model.step_policy.loss, 
+        #      self.model.step_policy.entropy, 
+        #      self.model.step_policy.policy_loss, 
+        #      self.model.step_policy.value_loss, 
+        #      self.model.step_policy.neg_log_prob, 
+        #      self.model.step_policy.global_norm], feed_dict)
         
 
     # Produces reversed list of discounted rewards

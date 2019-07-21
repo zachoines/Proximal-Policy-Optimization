@@ -69,7 +69,7 @@ class Worker():
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
                 self.total_steps += 1
-                [actions_dist], [value] = self.network.step([self.s], self._keep_prob())
+                _, [actions_dist], [value] = self.network.step(np.expand_dims(self.s, axis=0), self._keep_prob())
                 action = self.action_select(actions_dist)
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d

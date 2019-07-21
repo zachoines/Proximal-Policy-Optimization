@@ -41,30 +41,7 @@ class Coordinator:
        
     def train(self, train_data):
 
-        (batch_states,
-        batch_actions,
-        batch_advantages, batch_rewards, batch_values) = train_data
-        
-        # Now perform tensorflow session to determine policy and value loss for this batch
-        # np.ndarray.tolist(self.dense_to_one_hot(batch_actions))
-        feed_dict = { 
-            self.global_model.get_network().keep_prob: 1.0,
-            self.global_model.get_network().input_def: batch_states.tolist(),
-            self.global_model.get_network().actions: batch_actions.tolist(),
-            self.global_model.get_network().rewards: batch_rewards.tolist(),
-            self.global_model.get_network().values: batch_values.tolist(),
-            self.global_model.get_network().advantages: batch_advantages.tolist(),
-        }
-        
-        # Run tensorflow graph, return loss without updateing gradients 
-        optimizer, loss, policy_loss, value_loss, neg_log_prob, global_norm = self.global_model.sess.run(
-            [self.global_model.get_network().optimize,
-             self.global_model.get_network().loss, 
-             # self.global_model.get_network().entropy, 
-             self.global_model.get_network().policy_loss, 
-             self.global_model.get_network().value_loss, 
-             self.global_model.get_network().neg_log_prob, 
-             self.global_model.get_network().global_norm], feed_dict)
+        loss = self.global_model.train_batch(train_data)
         
         self.plot.collector.collect("LOSS", loss)
 
@@ -167,7 +144,8 @@ class Coordinator:
                         # δ_t == G_t - V:      
 
                         if (not done):
-                            [boot_strap] = self.global_model.value([observation])
+                            _, _, [boot_strap] = self.global_model.step(np.expand_dims(observation, axis=0), 1.0)
+                            boot_strap = boot_strap[0]
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
@@ -210,8 +188,7 @@ class Coordinator:
                         break
 
                 try:
-                    # saver = tf.train.Saver()
-                    # save_path = saver.save(self.sess, self.model_save_path + "\model.ckpt")
+                    self.global_model.save_model()
                     print("Model saved")
                 
                 except:

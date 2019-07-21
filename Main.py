@@ -24,7 +24,7 @@ from Wrappers import preprocess
 from Wrappers.Monitor import Monitor
 from Wrappers.Stats import Stats, Collector, AsynchronousPlot
 from Worker import Worker, WorkerThread
-from AC_Network import AC_Network
+from AC_Network import AC_Network, AC_Model
 from Model import Model
 from Coordinator import Coordinator
 
@@ -65,7 +65,7 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 512
+num_minibatches = 16
 num_epocs = 32
 gamma = .99
 learning_rate = 7e-4
@@ -92,15 +92,13 @@ NUM_ACTIONS = envs[0].env.action_space.n
 ACTION_SPACE = envs[0].env.action_space
 NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)
 
-
 # Load model if exists
-# saver = tf.train.Saver()
 if not os.path.exists(model_save_path):
     os.makedirs(model_save_path)
 else:
     try:
-        if (os.path.exists(model_save_path + "\checkpoint")):
-            # saver.restore(sess, model_save_path + "\model.ckpt")
+        if (os.path.exists(model_save_path + "\checkpoint.h5")):
+            Global_Model.load_model()
             print("Model restored.")
         else:
             print("Creating new model.")
@@ -120,35 +118,32 @@ anneling_steps = num_epocs * num_minibatches * batch_size
 # K.manual_variable_initialization(True)
 workers = []
 network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
-tf.reset_default_graph()
-config=tf.ConfigProto(allow_soft_placement=True)
-main_sess = tf.Session(config=config)
+
+main_sess = None
 
 # K.set_session(main_sess)
 gpus = get_available_gpus()
 device = gpus[0] if gpus else "cpu"
 with tf.device(device):
-    Train_Model = Model(network_params, main_sess)
+    Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training = False)
 
 step_models = []
 for env in envs:
-    
-    step_Model = Model(network_params, main_sess, Train_Model.get_network()) 
+    step_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training = True)
+    # step_Model = Model(network_params, main_sess, Train_Model.get_network()) 
     step_models.append(step_Model)
     gpus = get_available_gpus()
     device = gpus[0] if gpus else "cpu"
     with tf.device(device):
         workers.append(Worker(step_Model, env, anneling_steps, batch_size=batch_size, render=False))
 
-main_sess.run(tf.global_variables_initializer())
-
-coordinator = Coordinator(Train_Model, step_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
+coordinator = Coordinator(Global_Model, step_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
 
 
 # Train and save
 if coordinator.run():
     try:
-        # save_path = saver.save(sess, model_save_path + "\model.ckpt")
+        Global_Model.save_model()
         print("Model saved.")
         print("Now testing results....")
     except:

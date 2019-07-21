@@ -18,8 +18,6 @@ class GrayScaleImage(ObservationWrapper):
     def __init__(self, env, height = 96, width = 96, grayscale = True):
         super(GrayScaleImage, self).__init__(env)
 
-        with tf.name_scope("cnn_input"):
-            self.cnn_input = tf.placeholder(tf.uint8, (1, height, width, 1))
         self.img_size = (height, width)
         self.grayscale = grayscale
         n_channels = 1 if self.grayscale else 3
