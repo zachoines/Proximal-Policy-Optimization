@@ -11,29 +11,23 @@ import tensorflow.keras as keras
 import tensorflow.keras.backend as K
 from tensorflow.python.client import device_lib
 
-
 # Importing the packages for OpenAI and MARIO
 import gym
 from nes_py.wrappers import JoypadSpace
 import gym_super_mario_bros
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
-
 # Locally defined classes
 from Wrappers import preprocess
 from Wrappers.Monitor import Monitor
 from Wrappers.Stats import Stats, Collector, AsynchronousPlot
 from Worker import Worker, WorkerThread
-from AC_Network import AC_Network, AC_Model
-from Model import Model
+from AC_Network import AC_Model
 from Coordinator import Coordinator
-
-
 
 def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
-
 
 # Define a movement set
 CUSTOM_MOVEMENT = [
@@ -64,8 +58,8 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 16
-num_minibatches = 16
+batch_size = 24
+num_minibatches = 128
 num_epocs = 32
 gamma = .99
 learning_rate = 7e-4
@@ -73,7 +67,7 @@ learning_rate = 7e-4
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions(["CMA", "LOSS"])
+collector.set_dimensions(["CMA", "LOSS", "POLICY_LOSS", "VALUE_LOSS", "ENTROPY"])
 plot = AsynchronousPlot(collector, live = False)
 
 # Apply env wrappers

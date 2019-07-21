@@ -256,9 +256,7 @@ class Collector:
     def current_run_time(self):
         return (self.current_milli_time() - self.tstart)
   
-  
 
-    
         
 
 

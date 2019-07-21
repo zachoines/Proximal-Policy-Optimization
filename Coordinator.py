@@ -7,8 +7,7 @@ import tensorflow.keras as keras
 import tensorflow.keras.backend as k
 
 # import local classes
-from Model import Model
-from AC_Network import AC_Network
+from AC_Network import AC_Model
 from Worker import Worker, WorkerThread
 
 
@@ -41,9 +40,12 @@ class Coordinator:
        
     def train(self, train_data):
 
-        loss = self.global_model.train_batch(train_data)
+        loss, policy_loss, value_loss, entropy = self.global_model.train_batch(train_data)
         
         self.plot.collector.collect("LOSS", loss)
+        self.plot.collector.collect("VALUE_LOSS", value_loss)
+        self.plot.collector.collect("POLICY_LOSS", policy_loss)
+        self.plot.collector.collect("ENTROPY", entropy)
 
     # Produces reversed list of discounted rewards
     def discount(self, x, gamma):
@@ -99,6 +101,7 @@ class Coordinator:
                     all_rewards = np.array([])
                     all_states = np.array([])
                     all_actions = np.array([])
+                    all_logits = np.array([])
 
                     # Calculate discounted rewards for each environment
                     for env in range(self.num_envs):
@@ -109,6 +112,7 @@ class Coordinator:
                         batch_observations = []
                         batch_states = []
                         batch_actions = []
+                        batch_logits = []
 
                         mb = batches[env]
                         
@@ -123,12 +127,13 @@ class Coordinator:
                         observation = None
 
                         for step in mb:
-                            (state, observation, reward, value, action, done) = step
+                            (state, observation, reward, value, action, done, logits) = step
                             batch_rewards.append(reward)
                             batch_values.append(value)
                             batch_observations.append(observation)
                             batch_states.append(state)
                             batch_actions.append(action)
+                            batch_logits.append(logits)
 
                         
                         # If we reached the end of an episode or if we filled a batch without reaching termination of episode
@@ -161,6 +166,7 @@ class Coordinator:
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
                             all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
+                            all_logits = np.concatenate((all_logits, batch_logits), 0) if all_logits.size else np.array(batch_logits)
                         
                         else:
                             
@@ -176,11 +182,11 @@ class Coordinator:
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
                             all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-
+                            all_logits = np.concatenate((all_logits, batch_logits), 0) if all_logits.size else np.array(batch_logits)
 
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
                     batch_states = np.array(batch_states)
-                    data = (all_states, all_actions, all_advantages, all_rewards, all_values)
+                    data = (all_states, all_actions, all_advantages, all_rewards, all_values, all_logits)
                     
                     if data[0].size != 0:
                         self.train(data) 
