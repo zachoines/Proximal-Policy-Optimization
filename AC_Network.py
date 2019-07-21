@@ -29,7 +29,7 @@ class AC_Model(tf.keras.Model):
         self.conv1 = tf.keras.layers.Conv2D(
             filters=32,
             kernel_size=[5, 5],
-            kernel_initializer=keras.initializers.Orthogonal(gain=.7, seed=None),
+            kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu", 
             name="conv1")
@@ -40,7 +40,7 @@ class AC_Model(tf.keras.Model):
         self.conv2 = tf.keras.layers.Conv2D(
             filters=64,
             kernel_size=[3, 3],
-            kernel_initializer=keras.initializers.Orthogonal(gain=.7, seed=None),
+            kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu",
             name="conv2")
@@ -51,7 +51,7 @@ class AC_Model(tf.keras.Model):
         self.conv3 = tf.keras.layers.Conv2D(
             filters=96,
             kernel_size=[2, 2],
-            kernel_initializer=keras.initializers.Orthogonal(gain=.7, seed=None),
+            kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu",
             name="conv3")
@@ -62,7 +62,7 @@ class AC_Model(tf.keras.Model):
             512,
             activation="relu",
             # bias_regularizer=tf.keras.regularizers.l2(0.01),
-            kernel_initializer=keras.initializers.Orthogonal(gain=.7, seed=None),
+            kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             name="hidden_layer")
 
         # Output Layer consisting of an Actor and a Critic
@@ -75,7 +75,7 @@ class AC_Model(tf.keras.Model):
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            kernel_initializer=keras.initializers.Orthogonal(gain=.7, seed=None),
+            kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             name="policy_layer")
 
         self.batch_normalization1 = tf.keras.layers.BatchNormalization()
@@ -113,7 +113,6 @@ class AC_Model(tf.keras.Model):
 
     # pass a tuple of (batch_states, batch_actions, batch_advantages, batch_rewards)
     def train_batch(self, train_data):
-
 
         with tf.GradientTape() as tape:
             
@@ -153,6 +152,7 @@ class AC_Model(tf.keras.Model):
     
     # Makes a step in the environment
     def step(self, observation, keep_per):
+
         softmax, logits, value = self.call(observation, keep_per)
         return logits.numpy(), softmax.numpy(), value.numpy()
 
@@ -161,16 +161,16 @@ class AC_Model(tf.keras.Model):
         action_dist, softmax, value = self.call(observation, 1.0)
         return value.numpy()[0]
 
-    def save_model(self):
-        current_dir = os.getcwd()
-        model_save_path = current_dir + '\Model\checkpoint.h5'
-        self.save_weights(model_save_path)
+    def save_model(self): 
+        current_dir = os.getcwd()   
+        model_save_path = current_dir + '\Model\checkpoint.tf'
+        self.save_weights(model_save_path, save_format='tf')
 
     def load_model(self):
         current_dir = os.getcwd()
-        model_save_path = current_dir + '\Model\checkpoint.h5'
-        loaded_model = tf.keras.models.load_weights(model_save_path)
-        self.set_weights(loaded_model) 
+        model_save_path = current_dir + '\Model\checkpoint.tf'
+        self.load_weights(filepath=model_save_path)
+        # self.set_weights(loaded_weights) 
 
     def openai_entropy(self, logits):
         

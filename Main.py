@@ -48,7 +48,7 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 env_5 = 'SuperMarioBros-v0'
 
-env_names = [env_1]
+env_names = [env_1, env_2, env_3, env_4]
 
 # Configuration
 current_dir = os.getcwd()
@@ -59,8 +59,8 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 24
-num_minibatches = 128
-num_epocs = 32
+num_minibatches = 256
+num_epocs = 512
 gamma = .99
 learning_rate = 7e-4
 
@@ -86,20 +86,6 @@ NUM_ACTIONS = envs[0].env.action_space.n
 ACTION_SPACE = envs[0].env.action_space
 NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)
 
-# Load model if exists
-if not os.path.exists(model_save_path):
-    os.makedirs(model_save_path)
-else:
-    try:
-        if (os.path.exists(model_save_path + "\checkpoint.h5")):
-            Global_Model.load_model()
-            print("Model restored.")
-        else:
-            print("Creating new model.")
-    except:
-        print("ERROR: There was an issue loading the model!")
-        raise
-
 if not os.path.exists(video_save_path):
     os.makedirs(video_save_path)
 
@@ -118,13 +104,28 @@ main_sess = None
 # K.set_session(main_sess)
 gpus = get_available_gpus()
 device = gpus[0] if gpus else "cpu"
+
 with tf.device(device):
     Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training = False)
+
+# Load model if exists
+if not os.path.exists(model_save_path):
+    os.makedirs(model_save_path)
+else:
+    try:
+        if (os.path.exists(model_save_path + "\checkpoint")):
+            
+            Global_Model.load_model()
+            print("Model restored.")
+        else:
+            print("Creating new model.")
+    except:
+        print("ERROR: There was an issue loading the model!")
+        raise
 
 step_models = []
 for env in envs:
     step_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training = True)
-    # step_Model = Model(network_params, main_sess, Train_Model.get_network()) 
     step_models.append(step_Model)
     gpus = get_available_gpus()
     device = gpus[0] if gpus else "cpu"

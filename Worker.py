@@ -74,7 +74,7 @@ class Worker():
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
-                batch.append((self.s, s_t , reward, value, action, d, logits.tolist()))
+                batch.append((self.s, s_t , reward / 15.0, value, action, d, logits.tolist()))
                 s = [s_t]
 
                 # render the env
@@ -102,7 +102,7 @@ class Worker():
     def action_select(self, softmax):
         
         temperature = .8
-        exp_preds = np.exp(softmax / temperature)
+        exp_preds = np.exp(softmax / temperature).astype("float64")
         preds = exp_preds / np.sum(exp_preds)
         
         [probas] = np.random.multinomial(1, preds, 1)
