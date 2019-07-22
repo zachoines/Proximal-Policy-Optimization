@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 import tensorflow.keras as k
 import numpy as np
@@ -23,7 +25,26 @@ class Coordinator:
         self.batch_size = batch_size
         self.gamma = gamma
         self.total_loss = 0
-        self.plot = plot        
+        self.plot = plot   
+        self.total_steps = 0
+        self.pre_train_steps = 0
+        self._currentE = .90
+        self.anneling_steps = num_epocs * num_minibatches 
+
+    # Anneal dropout for optimized exploration in a bayesian network
+    def _keep_prob(self):
+        keep_per = lambda: (1.0 - self._currentE) + 0.1
+        startE = .9
+        endE = 0.1 # Final chance of random action
+        pre_train_steps = self.pre_train_steps # Number of steps used before anneling begins
+        total_steps = self.total_steps # max steps ones can take
+        stepDrop = (startE - endE) / self.anneling_steps
+
+        if self._currentE >= endE and total_steps >= pre_train_steps:
+            self._currentE -= stepDrop
+            return keep_per()
+        else:
+            return 1.0      
     
     def dense_to_one_hot(self, labels_dense, num_classes = 7):
         labels_dense = np.array(labels_dense)
@@ -58,6 +79,16 @@ class Coordinator:
         cv2.destroyAllWindows()
 
     def run(self):
+        save_path = ".\Model\\" + "state_vars.txt"
+
+        try: 
+            if (os.path.exists(save_path)):
+                with open(save_path, 'r') as f:
+                    s = f.read()
+                    self.total_steps = int("".join(s.split()))
+                    f.close()
+        except:
+            print("No additional saved state variables.")
         
         self.plot.start()
         
@@ -76,14 +107,16 @@ class Coordinator:
 
                 # loop for generating a training session a batch at a time
                 for mb in range(self.num_minibatches):
-
+                    
+                    self.total_steps += 1   
+                    
                     # Copy global network over to local network
                     self.refresh_local_network_params()
 
                     # Send workers out to threads
                     threads = []
                     for worker in self.workers:
-                        threads.append(WorkerThread(target=worker.run, args=()))
+                        threads.append(WorkerThread(target=worker.run, args=([self._keep_prob()])))
 
                     # Start the workers on their tasks
                     for thread in threads:
@@ -194,6 +227,14 @@ class Coordinator:
                         break
 
                 try:
+                    #Save model and other variables
+                    with open(save_path, 'w') as f:
+                        try:
+                            f.write(str(self.total_steps))
+                            f.close()
+                        except: 
+                            raise
+
                     self.global_model.save_model()
                     print("Model saved")
                 

@@ -25,6 +25,8 @@ from Worker import Worker, WorkerThread
 from AC_Network import AC_Model
 from Coordinator import Coordinator
 
+print("GPU Available: ", tf.test.is_gpu_available())
+
 def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
@@ -92,21 +94,18 @@ if not os.path.exists(video_save_path):
 if not os.path.exists('.\stats'):
     os.makedirs('.\stats')
 
-# Init coordinator and send out the workers
-anneling_steps = num_epocs * num_minibatches * batch_size
 
-# K.manual_variable_initialization(True)
 workers = []
 network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
 main_sess = None
 
 # K.set_session(main_sess)
-gpus = get_available_gpus()
-device = gpus[0] if gpus else "cpu"
+# gpus = get_available_gpus()
+# device = gpus[0] if gpus else "cpu"
 
-with tf.device(device):
-    Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training = False)
+# with tf.device(device):
+Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training = False)
 
 # Load model if exists
 if not os.path.exists(model_save_path):
@@ -127,10 +126,10 @@ step_models = []
 for env in envs:
     step_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training = True)
     step_models.append(step_Model)
-    gpus = get_available_gpus()
-    device = gpus[0] if gpus else "cpu"
-    with tf.device(device):
-        workers.append(Worker(step_Model, env, anneling_steps, batch_size=batch_size, render=False))
+    # gpus = get_available_gpus()
+    # device = gpus[0] if gpus else "cpu"
+    # with tf.device(device):
+    workers.append(Worker(step_Model, env, batch_size=batch_size, render=False))
 
 coordinator = Coordinator(Global_Model, step_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
 
