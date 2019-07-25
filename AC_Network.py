@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 import tensorflow as tf
 import tensorflow.keras as keras
@@ -91,7 +92,7 @@ class AC_Model(tf.keras.Model):
         self.batch_normalization3 = tf.keras.layers.BatchNormalization()
         self.trainables = [self.conv1, self.batch_normalization1, self.maxPool1, self.conv2, self.batch_normalization2, self.maxPool2, self.conv3, self.batch_normalization3, self.maxPool3, self.flattened, self._policy, self._value]
 
-    def call(self, input_image, keep_p):
+    def call(self, input_image, keep_p=1.0):
         conv1_out = self.conv1(input_image)
         conv1_out = self.batch_normalization1(conv1_out) 
         maxPool1_out = self.maxPool1(conv1_out)
@@ -106,10 +107,11 @@ class AC_Model(tf.keras.Model):
         
         flattened_out = self.flattened(maxPool3_out)
 
-        hidden_out = None
+        # hidden_out = None
+        hidden_out = flattened_out
         if self.is_training:
             # flattened_out, keep_prob = keep_p)
-            hidden_out = tf.nn.dropout(flattened_out, 1 - keep_p)
+            hidden_out = tf.nn.dropout(flattened_out, 1.0 - keep_p)
         else:
             hidden_out = flattened_out
 
@@ -124,29 +126,30 @@ class AC_Model(tf.keras.Model):
     def get_variables(self):
         variables = []
         for var in self.trainables:
+
             variables.append(var.variables)
 
         return variables
 
     # pass a tuple of (batch_states, batch_actions, batch_advantages, batch_rewards)
     def train_batch(self, train_data):
-
         with tf.GradientTape() as tape:
-
             for var in self.trainables:
                 tape.watch(var.variables)
             
             batch_states, batch_actions, batch_advantages, batch_rewards, batch_values, batch_logits = train_data
 
-            states = tf.Variable(batch_states)
-            actions = tf.Variable(batch_actions)
-            advantages = tf.Variable(batch_advantages)
-            rewards = tf.Variable(batch_rewards)
-            logits = tf.Variable(batch_logits)
+            actions = tf.Variable(batch_actions, name="Actions")
+            # advantages = tf.Variable(batch_advantages, name="Advantages")
+            rewards = tf.Variable(batch_rewards, name="Rewards")
             actions_hot = tf.one_hot(actions, self.num_actions, dtype=tf.float32)
+
+            logits, action_dist, values = self.call(tf.convert_to_tensor(batch_states, dtype=tf.float32))
+            advantages = rewards - values
 
             # Entropy: - (1 / n) * ∑ P_i * Log (P_i)
             entropy = tf.reduce_sum(self.openai_entropy(logits))
+            # entropy = tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-20), axis=1)
             
             # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
             neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
@@ -154,22 +157,14 @@ class AC_Model(tf.keras.Model):
             
             # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
             value_loss = tf.reduce_mean(tf.square(advantages))
- 
+
             loss = policy_loss + (value_loss * self.value_function_coeff) - (entropy.numpy() * self.entropy_coef)
 
             # Apply Gradients
             # optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, epsilon=self.epsilon)
             optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate, epsilon=self.epsilon)
-            
 
-            # test_2 = self.trainable_variables
-            # test_3 = self.trainable_weights
-            # test_4 = self.get_variables()
-            # grads = tape.gradient(loss, advantages)
-            # grads = tape.gradient(loss, [logits, advantages])
-            # tf.Graph.get_collection(tf.GraphKeys.VARIABLES)
-
-
+            # params = test_4
             params = tape.watched_variables()
             
             grads = tape.gradient(loss, params)

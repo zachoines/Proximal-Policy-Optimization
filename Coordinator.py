@@ -52,6 +52,7 @@ class Coordinator:
         index_offset = np.arange(num_labels) * num_classes
         labels_one_hot = np.zeros((num_labels, num_classes))
         labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
+        labels_one_hot = labels_one_hot.tolist()
         return labels_one_hot
 
     # Used to copy over global variables to local network 

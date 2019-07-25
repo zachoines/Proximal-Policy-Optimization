@@ -47,14 +47,6 @@ if gpus:
   except RuntimeError as e:
     print(e)
 
-# gpus = tf.config.experimental.list_physical_devices('GPU')
-# if gpus:
-#     try:
-#         tf.config.experimental.set_virtual_device_configuration(
-#             gpus[0],
-#             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024*4)])
-#     except RuntimeError as e:
-#         print(e)
 
 CUSTOM_MOVEMENT = [
     ['NOOP'],
