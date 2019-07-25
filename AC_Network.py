@@ -89,6 +89,7 @@ class AC_Model(tf.keras.Model):
         self.batch_normalization1 = tf.keras.layers.BatchNormalization()
         self.batch_normalization2 = tf.keras.layers.BatchNormalization()
         self.batch_normalization3 = tf.keras.layers.BatchNormalization()
+        self.trainables = [self.conv1, self.batch_normalization1, self.maxPool1, self.conv2, self.batch_normalization2, self.maxPool2, self.conv3, self.batch_normalization3, self.maxPool3, self.flattened, self._policy, self._value]
 
     def call(self, input_image, keep_p):
         conv1_out = self.conv1(input_image)
@@ -118,11 +119,22 @@ class AC_Model(tf.keras.Model):
         self.action_dist = tf.nn.softmax(self.logits)
 
         return self.logits, self.action_dist, self.value
+    
+    # Get watched trainable variables
+    def get_variables(self):
+        variables = []
+        for var in self.trainables:
+            variables.append(var.variables)
+
+        return variables
 
     # pass a tuple of (batch_states, batch_actions, batch_advantages, batch_rewards)
     def train_batch(self, train_data):
 
         with tf.GradientTape() as tape:
+
+            for var in self.trainables:
+                tape.watch(var.variables)
             
             batch_states, batch_actions, batch_advantages, batch_rewards, batch_values, batch_logits = train_data
 
@@ -131,8 +143,7 @@ class AC_Model(tf.keras.Model):
             advantages = tf.Variable(batch_advantages)
             rewards = tf.Variable(batch_rewards)
             logits = tf.Variable(batch_logits)
-            tape.watched_variables()
-            actions_hot = tf.one_hot(actions, 7, dtype=tf.float32)
+            actions_hot = tf.one_hot(actions, self.num_actions, dtype=tf.float32)
 
             # Entropy: - (1 / n) * ∑ P_i * Log (P_i)
             entropy = tf.reduce_sum(self.openai_entropy(logits))
@@ -150,15 +161,19 @@ class AC_Model(tf.keras.Model):
             # optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, epsilon=self.epsilon)
             optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate, epsilon=self.epsilon)
             
+            test_1 = tape.watched_variables()
+            # test_2 = self.trainable_variables
+            # test_3 = self.trainable_weights
+            # test_4 = self.get_variables()
             # grads = tape.gradient(loss, advantages)
             # grads = tape.gradient(loss, [logits, advantages])
             # tf.Graph.get_collection(tf.GraphKeys.VARIABLES)
-            grads = tape.gradient(loss, tf.keras.Model.trainable_variables)
+            grads = tape.gradient(loss, test_1)
 
-            grads, global_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+            # grads, global_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
 
             # optimizer.apply_gradients(zip(grads, [logits, advantages]))
-            optimizer.apply_gradients(zip(grads, tf.keras.Model.trainable_variables))
+            optimizer.apply_gradients(zip(grads, test_1))
         
             return loss.numpy(), policy_loss.numpy(), value_loss.numpy(), entropy.numpy()
     
@@ -182,7 +197,6 @@ class AC_Model(tf.keras.Model):
         current_dir = os.getcwd()
         model_save_path = current_dir + '\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
-        # self.set_weights(loaded_weights) 
 
     def openai_entropy(self, logits):
         
