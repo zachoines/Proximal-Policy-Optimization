@@ -161,19 +161,22 @@ class AC_Model(tf.keras.Model):
             # optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, epsilon=self.epsilon)
             optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate, epsilon=self.epsilon)
             
-            test_1 = tape.watched_variables()
+
             # test_2 = self.trainable_variables
             # test_3 = self.trainable_weights
             # test_4 = self.get_variables()
             # grads = tape.gradient(loss, advantages)
             # grads = tape.gradient(loss, [logits, advantages])
             # tf.Graph.get_collection(tf.GraphKeys.VARIABLES)
-            grads = tape.gradient(loss, test_1)
 
-            # grads, global_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
 
-            # optimizer.apply_gradients(zip(grads, [logits, advantages]))
-            optimizer.apply_gradients(zip(grads, test_1))
+            params = tape.watched_variables()
+            
+            grads = tape.gradient(loss, params)
+
+            grads, global_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+
+            optimizer.apply_gradients(zip(grads, params))
         
             return loss.numpy(), policy_loss.numpy(), value_loss.numpy(), entropy.numpy()
     
