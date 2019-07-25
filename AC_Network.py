@@ -90,7 +90,7 @@ class AC_Model(tf.keras.Model):
         self.batch_normalization1 = tf.keras.layers.BatchNormalization()
         self.batch_normalization2 = tf.keras.layers.BatchNormalization()
         self.batch_normalization3 = tf.keras.layers.BatchNormalization()
-        self.trainables = [self.conv1, self.batch_normalization1, self.maxPool1, self.conv2, self.batch_normalization2, self.maxPool2, self.conv3, self.batch_normalization3, self.maxPool3, self.flattened, self._policy, self._value]
+        self.trainables = [self.conv1,  self.maxPool1, self.conv2, self.maxPool2, self.conv3, self.maxPool3, self.flattened, self._policy, self._value]
 
     def call(self, input_image, keep_p=1.0):
         conv1_out = self.conv1(input_image)
@@ -139,7 +139,7 @@ class AC_Model(tf.keras.Model):
             
             batch_states, batch_actions, batch_advantages, batch_rewards, batch_values, batch_logits = train_data
 
-            actions = tf.Variable(batch_actions, name="Actions")
+            actions = tf.Variable(batch_actions, name="Actions", trainable=False)
             # advantages = tf.Variable(batch_advantages, name="Advantages")
             rewards = tf.Variable(batch_rewards, name="Rewards")
             actions_hot = tf.one_hot(actions, self.num_actions, dtype=tf.float32)
