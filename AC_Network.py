@@ -32,7 +32,8 @@ class AC_Model(tf.keras.Model):
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu", 
-            name="conv1")
+            name="conv1",
+            trainable=True)
         
         self.maxPool1 = tf.keras.layers.MaxPooling2D(pool_size = (3, 3), name = "maxPool1")
 
@@ -45,7 +46,8 @@ class AC_Model(tf.keras.Model):
             activation="relu",
             name="conv2")
 
-        self.maxPool2 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name="maxPool2")
+        self.maxPool2 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name="maxPool2",
+            trainable=True)
         
         # define Convolution 3
         self.conv3 = tf.keras.layers.Conv2D(
@@ -54,29 +56,35 @@ class AC_Model(tf.keras.Model):
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu",
-            name="conv3")
+            name="conv3",
+            trainable=True)
 
-        self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name ="maxPool3")
-        self.flattened = tf.keras.layers.Flatten(name="flattening_layer")
+        self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name ="maxPool3",
+            trainable=True)
+        self.flattened = tf.keras.layers.Flatten(name="flattening_layer",
+            trainable=True)
         self.hiddenLayer = tf.keras.layers.Dense(
             512,
             activation="relu",
             # bias_regularizer=tf.keras.regularizers.l2(0.01),
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
-            name="hidden_layer")
+            name="hidden_layer",
+            trainable=True)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             activation='linear',
-            name="value_layer")
+            name="value_layer",
+            trainable=True)
    
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
-            name="policy_layer")
+            name="policy_layer",
+            trainable=True)
 
         self.batch_normalization1 = tf.keras.layers.BatchNormalization()
         self.batch_normalization2 = tf.keras.layers.BatchNormalization()
@@ -100,7 +108,7 @@ class AC_Model(tf.keras.Model):
         hidden_out = None
         if self.is_training:
             # flattened_out, keep_prob = keep_p)
-            hidden_out = tf.nn.dropout(flattened_out, keep_p)
+            hidden_out = tf.nn.dropout(flattened_out, 1 - keep_p)
         else:
             hidden_out = flattened_out
 
@@ -127,26 +135,30 @@ class AC_Model(tf.keras.Model):
             actions_hot = tf.one_hot(actions, 7, dtype=tf.float32)
 
             # Entropy: - (1 / n) * ∑ P_i * Log (P_i)
-            entropy = tf.reduce_mean(self.openai_entropy(logits))
+            entropy = tf.reduce_sum(self.openai_entropy(logits))
             
             # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
             neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
-            policy_loss = tf.reduce_mean(neg_log_prob * advantages)
+            policy_loss = tf.reduce_mean(neg_log_prob * tf.stop_gradient(advantages))
             
             # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-            value_loss = tf.reduce_mean(tf.square(advantages)) 
+            value_loss = tf.reduce_mean(tf.square(advantages))
  
             loss = policy_loss + (value_loss * self.value_function_coeff) - (entropy.numpy() * self.entropy_coef)
 
             # Apply Gradients
-            optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, epsilon=self.epsilon)
+            # optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, epsilon=self.epsilon)
+            optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate, epsilon=self.epsilon)
             
             # grads = tape.gradient(loss, advantages)
-            grads = tape.gradient(loss, [logits, advantages])
+            # grads = tape.gradient(loss, [logits, advantages])
+            # tf.Graph.get_collection(tf.GraphKeys.VARIABLES)
+            grads = tape.gradient(loss, tf.keras.Model.trainable_variables)
 
             grads, global_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
 
-            optimizer.apply_gradients(zip(grads, [logits, advantages]))
+            # optimizer.apply_gradients(zip(grads, [logits, advantages]))
+            optimizer.apply_gradients(zip(grads, tf.keras.Model.trainable_variables))
         
             return loss.numpy(), policy_loss.numpy(), value_loss.numpy(), entropy.numpy()
     

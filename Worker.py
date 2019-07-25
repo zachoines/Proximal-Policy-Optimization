@@ -22,7 +22,7 @@ class WorkerThread(Thread):
 # Class to represent a worker in an environment. Call run() to generate a batch. 
 class Worker():
 
-    def __init__(self, network, env, batch_size = 32, render = True):
+    def __init__(self, network, env, batch_size = 32, render = True, exploration="bayesian"):
 
         # Epsisode collected variables
         self._batch_buffer = []
@@ -35,6 +35,7 @@ class Worker():
         self.s = None
         self.NUM_ACTIONS = env.action_space.n
         self.NONE_STATE = np.zeros(self.env.observation_space.shape)
+        self.exploration = exploration
         
         
     # Reset worker and evironment variables in preperation for a new epoc
@@ -53,7 +54,7 @@ class Worker():
             if not self._done:
                 self.total_steps += 1
                 [logits], [actions_dist], [[value]] = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
-                action = self.action_select(actions_dist)
+                action = self.action_select(logits, exploration="bayesian")
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
@@ -80,16 +81,19 @@ class Worker():
         return self._batch_buffer
             
 
-    # TODO::Delegate action selction to AC_Netork class by making a Boltzmann probabilities action selection
     # Boltzmann Softmax style action selection
-    def action_select(self, softmax):
+    def action_select(self, dist, exploration="boltzmann"):
         
-        temperature = .8
-        exp_preds = np.exp(softmax / temperature).astype("float64")
-        preds = exp_preds / np.sum(exp_preds)
-        
-        [probas] = np.random.multinomial(1, preds, 1)
-        action = np.argmax(probas)
-        
-        return action
+
+        if exploration == "boltzmann":
+            temperature = .8
+            exp_preds = np.exp(dist / temperature).astype("float64")
+            preds = exp_preds / np.sum(exp_preds)
+            
+            [probas] = np.random.multinomial(1, preds, 1)
+            action = np.argmax(probas)
+            
+            return action
+        elif exploration == "bayesian":
+            return np.argmax(dist)
 
