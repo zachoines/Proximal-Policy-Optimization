@@ -54,7 +54,7 @@ class Worker():
             if not self._done:
                 self.total_steps += 1
                 [logits], [actions_dist], [[value]] = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
-                action = self.action_select(logits, exploration="bayesian")
+                action = self.action_select(actions_dist, exploration="bayesian")
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 

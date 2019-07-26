@@ -62,12 +62,12 @@ class Coordinator:
        
     def train(self, train_data):
 
-        loss, policy_loss, value_loss, entropy = self.global_model.train_batch(train_data)
+        loss = self.global_model.train_batch(train_data)
         
         self.plot.collector.collect("LOSS", loss)
-        self.plot.collector.collect("VALUE_LOSS", value_loss)
-        self.plot.collector.collect("POLICY_LOSS", policy_loss)
-        self.plot.collector.collect("ENTROPY", entropy)
+        # self.plot.collector.collect("VALUE_LOSS", value_loss)
+        # self.plot.collector.collect("POLICY_LOSS", policy_loss)
+        # self.plot.collector.collect("ENTROPY", entropy)
 
     # Produces reversed list of discounted rewards
     def discount(self, x, gamma):

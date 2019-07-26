@@ -66,7 +66,7 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 env_5 = 'SuperMarioBros-v0'
 
-env_names = [env_1, env_2, env_3, env_4, env_5]
+env_names = [env_1, env_2]
 
 # Configuration
 current_dir = os.getcwd()
@@ -85,7 +85,7 @@ learning_rate = 7e-4
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions(["CMA", "LOSS", "POLICY_LOSS", "VALUE_LOSS", "ENTROPY"])
+collector.set_dimensions(["CMA", "LOSS"])
 plot = AsynchronousPlot(collector, live=False)
 
 # Apply env wrappers

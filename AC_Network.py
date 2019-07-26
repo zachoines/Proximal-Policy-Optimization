@@ -15,8 +15,8 @@ class AC_Model(tf.keras.Model):
         self.is_training = is_training
 
         # Dicounting hyperparams for loss functions
-        self.entropy_coef = 0.01
-        self.value_function_coeff = 0.5
+        self.entropy_coef = 1.0 # 0.01
+        self.value_function_coeff = 1.0 # .50
         self.max_grad_norm = 40.0
         self.learning_rate = 7e-4
         self.alpha = 0.99
@@ -140,29 +140,27 @@ class AC_Model(tf.keras.Model):
             batch_states, batch_actions, batch_advantages, batch_rewards, batch_values, batch_logits = train_data
 
             actions = tf.Variable(batch_actions, name="Actions", trainable=False)
-            # advantages = tf.Variable(batch_advantages, name="Advantages")
             rewards = tf.Variable(batch_rewards, name="Rewards")
             actions_hot = tf.one_hot(actions, self.num_actions, dtype=tf.float32)
 
             logits, action_dist, values = self.call(tf.convert_to_tensor(batch_states, dtype=tf.float32))
             advantages = rewards - values
 
-            # Entropy: - (1 / n) * ∑ P_i * Log (P_i)
-            entropy = tf.reduce_sum(self.openai_entropy(logits))
-            # entropy = tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-20), axis=1)
-            
+            # Entropy: - ∑ P_i * Log (P_i)
+            entropy = self.softmax_entropy(action_dist)
+
             # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
             neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
-            policy_loss = tf.reduce_mean(neg_log_prob * tf.stop_gradient(advantages))
+            policy_loss = (neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.entropy_coef)
             
             # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-            value_loss = tf.reduce_mean(tf.square(advantages))
+            value_loss = tf.square(advantages)
 
-            loss = policy_loss + (value_loss * self.value_function_coeff) - (entropy.numpy() * self.entropy_coef)
+            loss = tf.reduce_mean(policy_loss + (value_loss * self.value_function_coeff)) 
 
             # Apply Gradients
-            # optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, epsilon=self.epsilon)
-            optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate, epsilon=self.epsilon)
+            optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, epsilon=self.epsilon)
+            # optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate, epsilon=self.epsilon)
 
             # params = test_4
             params = tape.watched_variables()
@@ -173,7 +171,7 @@ class AC_Model(tf.keras.Model):
 
             optimizer.apply_gradients(zip(grads, params))
         
-            return loss.numpy(), policy_loss.numpy(), value_loss.numpy(), entropy.numpy()
+            return loss.numpy()
     
     # Makes a step in the environment
     def step(self, observation, keep_per):
@@ -196,15 +194,15 @@ class AC_Model(tf.keras.Model):
         model_save_path = current_dir + '\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
 
-    def openai_entropy(self, logits):
+    # Turn logits to softmax and calculate entropy
+    def logits_entropy(self, logits):
         
-        # Entropy from OpenAI A2C baseline
         a0 = logits - tf.reduce_max(logits, 1, keepdims=True)
         ea0 = tf.exp(a0)
         z0 = tf.reduce_sum(ea0, 1, keepdims=True)
         p0 = ea0 / z0
         return tf.reduce_sum(p0 * (tf.math.log(z0) - a0), 1)
 
+    # standard entropy
     def softmax_entropy(self, p0):
-        # standard entropy
-        return - tf.reduce_sum(p0 * tf.log(p0 + 1e-6), axis=1)
+        return - tf.reduce_sum(p0 * tf.math.log(p0 + 1e-20), axis=1)
