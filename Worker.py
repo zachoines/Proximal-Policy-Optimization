@@ -53,13 +53,13 @@ class Worker():
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
                 self.total_steps += 1
-                [logits], [actions_dist], [[value]] = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
-                action = self.action_select(actions_dist, exploration="bayesian")
+                logits, _ , value = self.network.step(np.expand_dims(self.s, axis=0), 0.5)
+                action = self.action_select(logits, exploration="boltzmann", temperature=keep_prob)
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
                 batch.append((self.s, s_t , reward / 15.0, value, action, d, logits.tolist()))
-                s = [s_t]
+                self.s = s_t
 
                 # render the env
                 if (self._render):
@@ -82,18 +82,22 @@ class Worker():
             
 
     # Boltzmann Softmax style action selection
-    def action_select(self, dist, exploration="boltzmann"):
+    def action_select(self, dist, exploration="boltzmann", temperature=.8):
         
 
-        if exploration == "boltzmann":
-            temperature = .8
-            exp_preds = np.exp(dist / temperature).astype("float64")
+        if exploration == "boltzmann":        
+
+            # dist = tf.nn.softmax(dist/temperature).numpy()
+            # a = np.random.choice(dist,p=dist)
+            # a = np.argmax(dist == a)
+
+            exp_preds = np.exp((dist + 1e-16) / temperature ).astype("float64")
             preds = exp_preds / np.sum(exp_preds)
             
             [probas] = np.random.multinomial(1, preds, 1)
-            action = np.argmax(probas)
-            
-            return action
+            a = np.argmax(probas)
+            return a
+
         elif exploration == "bayesian":
             return np.argmax(dist)
 

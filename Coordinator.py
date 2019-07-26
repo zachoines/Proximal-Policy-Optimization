@@ -28,13 +28,13 @@ class Coordinator:
         self.plot = plot   
         self.total_steps = 0
         self.pre_train_steps = 0
-        self._currentE = .90
+        self._currentE = 1.0
         self.anneling_steps = num_epocs * num_minibatches 
 
-    # Anneal dropout for optimized exploration in a bayesian network
+    # for Annealing dropout or for Annealing temperature scales from 1.0 to .1
     def _keep_prob(self):
         keep_per = lambda: (1.0 - self._currentE) + 0.1
-        startE = .9
+        startE = 1.0
         endE = 0.1 # Final chance of random action
         pre_train_steps = self.pre_train_steps # Number of steps used before anneling begins
         total_steps = self.total_steps # max steps ones can take
@@ -46,6 +46,7 @@ class Coordinator:
         else:
             return 1.0      
     
+    # Convert numbered actions into one-hot formate [0 , 0, 1, 0, 0]
     def dense_to_one_hot(self, labels_dense, num_classes = 7):
         labels_dense = np.array(labels_dense)
         num_labels = labels_dense.shape[0]
@@ -62,12 +63,8 @@ class Coordinator:
        
     def train(self, train_data):
 
-        loss = self.global_model.train_batch(train_data)
-        
+        loss, value_loss, policy_loss, entropy, global_norm = self.global_model.train_batch(train_data)
         self.plot.collector.collect("LOSS", loss)
-        # self.plot.collector.collect("VALUE_LOSS", value_loss)
-        # self.plot.collector.collect("POLICY_LOSS", policy_loss)
-        # self.plot.collector.collect("ENTROPY", entropy)
 
     # Produces reversed list of discounted rewards
     def discount(self, x, gamma):
@@ -131,23 +128,17 @@ class Coordinator:
                         batch = thread.join()
                         batches.append(batch)
 
-                    all_values = np.array([])
-                    all_advantages = np.array([])
                     all_rewards = np.array([])
                     all_states = np.array([])
                     all_actions = np.array([])
-                    all_logits = np.array([])
 
                     # Calculate discounted rewards for each environment
                     for env in range(self.num_envs):
                         done = False
-                        batch_advantages = []
                         batch_rewards = []
-                        batch_values = []
                         batch_observations = []
                         batch_states = []
                         batch_actions = []
-                        batch_logits = []
 
                         mb = batches[env]
                         
@@ -157,18 +148,15 @@ class Coordinator:
 
                         # For every step made in this env for this particular batch
                         done = False
-                        state = None
                         value = None
                         observation = None
 
                         for step in mb:
                             (state, observation, reward, value, action, done, logits) = step
                             batch_rewards.append(reward)
-                            batch_values.append(value)
                             batch_observations.append(observation)
                             batch_states.append(state)
                             batch_actions.append(action)
-                            batch_logits.append(logits)
 
                         
                         # If we reached the end of an episode or if we filled a batch without reaching termination of episode
@@ -184,32 +172,29 @@ class Coordinator:
                         # δ_t == G_t - V:      
 
                         if (not done):
-                            _, _, [boot_strap] = self.global_model.step(np.expand_dims(observation, axis=0), 1.0)
-                            boot_strap = boot_strap[0]
+                            _, _, boot_strap = self.global_model.step(np.expand_dims(observation, axis=0), 1.0)
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
-                            batch_advantages = batch_rewards - batch_values
+                            # batch_advantages = batch_rewards - batch_values
 
                             # Same as above...
                             # bootstrapped_values = np.asarray(batch_values + [boot_strap])
                             # advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
                             # advantages = self.discount(advantages, self.gamma)
 
-                            data = (batch_states, batch_actions, batch_advantages.tolist(), batch_rewards.tolist(), batch_values, batch_logits)
+                            # data = (batch_states, batch_actions, batch_advantages.tolist(), batch_rewards.tolist(), batch_values, batch_logits)
                     
-                            if len(data[0]) != 0:
-                                self.train(data) 
-                            else:
-                                break
+                            # if len(data[0]) != 0:
+                            #     self.train(data) 
+                            # else:
+                            #     break
 
                             # all_advantages= np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
-                            # all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
-                            # all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
-                            # all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
-                            # all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-                            # all_logits = np.concatenate((all_logits, batch_logits), 0) if all_logits.size else np.array(batch_logits)
-                        
+                            all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
+                            all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
+                            all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+                           
                         else:
                             
                             boot_strap = 0
@@ -220,28 +205,25 @@ class Coordinator:
                             batch_advantages = batch_rewards - batch_values
 
 
-                            data = (batch_states, batch_actions, batch_advantages.tolist(), batch_rewards.tolist(), batch_values, batch_logits)
+                            # data = (batch_states, batch_actions, batch_advantages.tolist(), batch_rewards.tolist(), batch_values, batch_logits)
                     
-                            if len(data[0]) != 0:
-                                self.train(data) 
-                            else:
-                                break
+                            # if len(data[0]) != 0:
+                            #     self.train(data) 
+                            # else:
+                            #     break
 
                             # all_advantages= np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
-                            # all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
-                            # all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
-                            # all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
-                            # all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-                            # all_logits = np.concatenate((all_logits, batch_logits), 0) if all_logits.size else np.array(batch_logits)
-
+                            all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
+                            all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
+                            all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+                            
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
-                    # batch_states = np.array(batch_states)
-                    # data = (all_states, all_actions, all_advantages, all_rewards, all_values, all_logits)
+                    data = (all_states, all_actions, all_rewards)
                     
-                    # if data[0].size != 0:
-                    #     self.train(data) 
-                    # else:
-                    #     break
+                    if data[0].size != 0:
+                        self.train(data) 
+                    else:
+                        break
 
                 try:
                     #Save model and other variables

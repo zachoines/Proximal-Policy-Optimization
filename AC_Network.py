@@ -15,8 +15,8 @@ class AC_Model(tf.keras.Model):
         self.is_training = is_training
 
         # Dicounting hyperparams for loss functions
-        self.entropy_coef = 1.0 # 0.01
-        self.value_function_coeff = 1.0 # .50
+        self.entropy_coef = 0.01
+        self.value_function_coeff = 0.50
         self.max_grad_norm = 40.0
         self.learning_rate = 7e-4
         self.alpha = 0.99
@@ -83,7 +83,7 @@ class AC_Model(tf.keras.Model):
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
+            kernel_initializer=keras.initializers.Orthogonal(gain=.01, seed=None),
             name="policy_layer",
             trainable=True)
 
@@ -107,10 +107,8 @@ class AC_Model(tf.keras.Model):
         
         flattened_out = self.flattened(maxPool3_out)
 
-        # hidden_out = None
         hidden_out = flattened_out
         if self.is_training:
-            # flattened_out, keep_prob = keep_p)
             hidden_out = tf.nn.dropout(flattened_out, 1.0 - keep_p)
         else:
             hidden_out = flattened_out
@@ -120,7 +118,7 @@ class AC_Model(tf.keras.Model):
         self.logits = self._policy(hidden_out)
         self.action_dist = tf.nn.softmax(self.logits)
 
-        return self.logits, self.action_dist, self.value
+        return tf.squeeze(self.logits), tf.squeeze(self.action_dist), tf.squeeze(self.value)
     
     # Get watched trainable variables
     def get_variables(self):
@@ -137,13 +135,13 @@ class AC_Model(tf.keras.Model):
             for var in self.trainables:
                 tape.watch(var.variables)
             
-            batch_states, batch_actions, batch_advantages, batch_rewards, batch_values, batch_logits = train_data
+            batch_states, batch_actions, batch_rewards = train_data
 
             actions = tf.Variable(batch_actions, name="Actions", trainable=False)
-            rewards = tf.Variable(batch_rewards, name="Rewards")
+            rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float32)
             actions_hot = tf.one_hot(actions, self.num_actions, dtype=tf.float32)
 
-            logits, action_dist, values = self.call(tf.convert_to_tensor(batch_states, dtype=tf.float32))
+            logits, action_dist, values = self.call(batch_states)
             advantages = rewards - values
 
             # Entropy: - ∑ P_i * Log (P_i)
@@ -162,8 +160,7 @@ class AC_Model(tf.keras.Model):
             optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, epsilon=self.epsilon)
             # optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate, epsilon=self.epsilon)
 
-            # params = test_4
-            params = tape.watched_variables()
+            params = self.trainable_weights
             
             grads = tape.gradient(loss, params)
 
@@ -171,7 +168,7 @@ class AC_Model(tf.keras.Model):
 
             optimizer.apply_gradients(zip(grads, params))
         
-            return loss.numpy()
+            return loss.numpy(), value_loss.numpy(), policy_loss.numpy(), entropy.numpy(), global_norm.numpy()
     
     # Makes a step in the environment
     def step(self, observation, keep_per):
