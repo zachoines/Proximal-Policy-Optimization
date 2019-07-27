@@ -183,13 +183,6 @@ class Coordinator:
                             # advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
                             # advantages = self.discount(advantages, self.gamma)
 
-                            # data = (batch_states, batch_actions, batch_advantages.tolist(), batch_rewards.tolist(), batch_values, batch_logits)
-                    
-                            # if len(data[0]) != 0:
-                            #     self.train(data) 
-                            # else:
-                            #     break
-
                             # all_advantages= np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
                             all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
@@ -202,15 +195,7 @@ class Coordinator:
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
-                            batch_advantages = batch_rewards - batch_values
-
-
-                            # data = (batch_states, batch_actions, batch_advantages.tolist(), batch_rewards.tolist(), batch_values, batch_logits)
-                    
-                            # if len(data[0]) != 0:
-                            #     self.train(data) 
-                            # else:
-                            #     break
+                            # batch_advantages = batch_rewards - batch_values
 
                             # all_advantages= np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
                             all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)

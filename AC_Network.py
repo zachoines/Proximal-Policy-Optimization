@@ -108,17 +108,17 @@ class AC_Model(tf.keras.Model):
         flattened_out = self.flattened(maxPool3_out)
 
         hidden_out = flattened_out
-        if self.is_training:
-            hidden_out = tf.nn.dropout(flattened_out, 1.0 - keep_p)
-        else:
-            hidden_out = flattened_out
+        # if self.is_training:
+        #     hidden_out = tf.nn.dropout(flattened_out, 1.0 - keep_p)
+        # else:
+        #     hidden_out = flattened_out
 
         # Actor and the Critic outputs
         self.value = self._value(hidden_out)
         self.logits = self._policy(hidden_out)
         self.action_dist = tf.nn.softmax(self.logits)
 
-        return tf.squeeze(self.logits), tf.squeeze(self.action_dist), tf.squeeze(self.value)
+        return self.logits, self.action_dist, tf.squeeze(self.value)
     
     # Get watched trainable variables
     def get_variables(self):

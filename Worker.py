@@ -53,7 +53,7 @@ class Worker():
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
                 self.total_steps += 1
-                logits, _ , value = self.network.step(np.expand_dims(self.s, axis=0), 0.5)
+                [logits], _ , value = self.network.step(np.expand_dims(self.s, axis=0), 0.5)
                 action = self.action_select(logits, exploration="boltzmann", temperature=keep_prob)
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d

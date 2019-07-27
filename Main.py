@@ -35,9 +35,9 @@ def get_available_gpus():
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
 
 # GPU configuration
-# tf.config.set_soft_device_placement(True)
-
 gpus = tf.config.experimental.list_physical_devices('GPU')
+tf.config.threading.set_inter_op_parallelism_threads(6)
+tf.config.threading.set_intra_op_parallelism_threads(0)
 if gpus:
   try:
     
@@ -66,7 +66,7 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 env_5 = 'SuperMarioBros-v0'
 
-env_names = [env_1, env_2]
+env_names = [env_1, env_3]
 
 # Configuration
 current_dir = os.getcwd()
@@ -76,9 +76,9 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 24
+batch_size = 16
 num_minibatches = 512
-num_epocs = 512 * 16
+num_epocs = 512
 gamma = .99
 learning_rate = 7e-4
 
