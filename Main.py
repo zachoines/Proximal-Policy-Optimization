@@ -36,8 +36,8 @@ def get_available_gpus():
 
 # GPU configuration
 gpus = tf.config.experimental.list_physical_devices('GPU')
-tf.config.threading.set_inter_op_parallelism_threads(6)
-tf.config.threading.set_intra_op_parallelism_threads(0)
+# tf.config.threading.set_inter_op_parallelism_threads(0)
+# tf.config.threading.set_intra_op_parallelism_threads(0)
 if gpus:
   try:
     
@@ -66,7 +66,8 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 env_5 = 'SuperMarioBros-v0'
 
-env_names = [env_1, env_3]
+env_names = [env_1, env_2, env_3, env_4]
+# env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -92,7 +93,7 @@ plot = AsynchronousPlot(collector, live=False)
 for env in env_names:
     env = gym_super_mario_bros.make(env) 
     env = preprocess.FrameSkip(env, 4)
-    env = JoypadSpace(env, SIMPLE_MOVEMENT)
+    env = JoypadSpace(env, COMPLEX_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
     env = preprocess.GrayScaleImage(env, height=96, width=96, grayscale=True)
     env = preprocess.FrameStack(env, 4)
@@ -131,13 +132,11 @@ else:
         print("ERROR: There was an issue loading the model!")
         raise
 
-step_models = []
+step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 for env in envs:
-    step_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-    step_models.append(step_Model)
-    workers.append(Worker(step_Model, env, batch_size=batch_size, render=False))
+    workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
 
-coordinator = Coordinator(Global_Model, step_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
+coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
 
 
 # Train and save
