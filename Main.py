@@ -66,8 +66,8 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 env_5 = 'SuperMarioBros-v0'
 
-env_names = [env_1, env_2, env_3, env_4]
-# env_names = [env_1]
+# env_names = [env_1, env_2, env_3, env_4]
+env_names = [env_1, env_3]
 
 # Configuration
 current_dir = os.getcwd()
@@ -79,7 +79,7 @@ record = True
 num_envs = len(env_names)
 batch_size = 16
 num_minibatches = 512
-num_epocs = 512
+num_epocs = 512 * 4
 gamma = .99
 learning_rate = 7e-4
 
@@ -116,7 +116,7 @@ workers = []
 network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
-
+step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 # Load model if exists
 if not os.path.exists(model_save_path):
     os.makedirs(model_save_path)
@@ -125,6 +125,7 @@ else:
         if (os.path.exists(model_save_path + "\checkpoint")):
             
             Global_Model.load_model()
+            step_model.load_model()
             print("Model restored.")
         else:
             print("Creating new model.")
@@ -132,7 +133,8 @@ else:
         print("ERROR: There was an issue loading the model!")
         raise
 
-step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
+
+
 for env in envs:
     workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
 

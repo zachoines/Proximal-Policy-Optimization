@@ -61,7 +61,8 @@ class Coordinator:
 
     # Used to copy over global variables to local network 
     def refresh_local_network_params(self):
-        self.local_model.set_weights(copy.deepcopy(self.global_model.get_weights()))
+        self.local_model.set_weights(self.global_model.get_weights())
+        # self.local_model.set_weights(copy.deepcopy(self.global_model.get_weights()))
     
     # pass a tuple of (batch_states, batch_actions,batch_rewards) 
     def loss(self, train_data):
