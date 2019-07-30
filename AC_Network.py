@@ -28,7 +28,7 @@ class AC_Model(tf.keras.Model):
         # Define Convolution 1
         self.conv1 = tf.keras.layers.Conv2D(
             filters=32,
-            kernel_size=[5, 5],
+            kernel_size=[7, 7],
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu", 
@@ -40,7 +40,7 @@ class AC_Model(tf.keras.Model):
         # define Convolution 2
         self.conv2 = tf.keras.layers.Conv2D(
             filters=64,
-            kernel_size=[3, 3],
+            kernel_size=[5, 5],
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu",
@@ -52,7 +52,7 @@ class AC_Model(tf.keras.Model):
         # define Convolution 3
         self.conv3 = tf.keras.layers.Conv2D(
             filters=96,
-            kernel_size=[2, 2],
+            kernel_size=[3, 3],
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu",
@@ -64,7 +64,7 @@ class AC_Model(tf.keras.Model):
         self.flattened = tf.keras.layers.Flatten(name="flattening_layer",
             trainable=True)
         self.hiddenLayer = tf.keras.layers.Dense(
-            256,
+            512,
             activation="relu",
             # bias_regularizer=tf.keras.regularizers.l2(0.01),
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),

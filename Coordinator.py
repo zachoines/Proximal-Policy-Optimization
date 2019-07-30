@@ -15,9 +15,9 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, model, local_model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
+    def __init__(self, model, local_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
         self.global_model = model
-        self.local_model = local_model
+        self.local_models = local_models
         self.model_save_path = model_save_path
         self.workers = workers
         self.num_envs = num_envs
@@ -31,8 +31,8 @@ class Coordinator:
         self.pre_train_steps = 0
         self._currentE = 1.0
         self.anneling_steps = num_epocs * num_minibatches 
-        self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.local_model.learning_rate, epsilon=self.local_model.epsilon)
-        # self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.local_model.learning_rate, epsilon=self.local_model.epsilon)
+        self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.global_model.learning_rate, epsilon=self.global_model.epsilon)
+        # self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.local_models.learning_rate, epsilon=self.local_models.epsilon)
             
     # for Annealing dropout or for Annealing temperature scales from 1.0 to .1
     def _keep_prob(self):
@@ -60,31 +60,37 @@ class Coordinator:
         return labels_one_hot
 
     # Used to copy over global variables to local network 
-    def refresh_local_network_params(self):
-        self.local_model.set_weights(self.global_model.get_weights())
-        # self.local_model.set_weights(copy.deepcopy(self.global_model.get_weights()))
+    def refresh_local_network_params(self, to="Local"):
+        if to == "Local":
+            for model in self.local_models:
+                model.set_weights(copy.deepcopy(self.global_model.get_weights()))
+        else:
+            self.global_model.set_weights(copy.deepcopy(self.local_models[0].get_weights()))
     
-    # pass a tuple of (batch_states, batch_actions,batch_rewards) 
+    # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self, train_data):
         
-        batch_states, batch_actions, batch_rewards = train_data
+        batch_states, batch_actions, batch_rewards, batch_advantages=  train_data
         actions = tf.Variable(batch_actions, name="Actions", trainable=False)
         rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float32)
-        actions_hot = tf.one_hot(actions, self.local_model.num_actions, dtype=tf.float32)
+        actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float32)
 
-        logits, action_dist, values = self.local_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
+        logits, action_dist, values = self.local_models[0].call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
         
         advantages = rewards - values
 
+        # print(advantages.numpy())
+        # print(batch_advantages)
+
         # Entropy: - ∑ P_i * Log (P_i)
-        entropy = self.local_model.softmax_entropy(action_dist)
+        entropy = self.local_models[0].softmax_entropy(action_dist)
         
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
         neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
-        policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.local_model.entropy_coef))
+        policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.local_models[0].entropy_coef))
         
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        value_loss = tf.losses.mean_squared_error(rewards, values) * self.local_model.value_function_coeff
+        value_loss = tf.losses.mean_squared_error(rewards, values) * self.local_models[0].value_function_coeff
 
         loss = policy_loss + value_loss
 
@@ -96,22 +102,26 @@ class Coordinator:
     def train(self, train_data):
         with tf.GradientTape() as tape:
             
-            for var in self.local_model.layers:
-                for weight in var.trainable_weights:
-                    tape.watch(weight)
+            for var in self.local_models[0].layers:
+                for w in var.trainable_weights:
+                    tape.watch(w)
+                for v in var.trainable_variables:
+                    tape.watch(v)
             
             loss = self.loss(train_data)
 
             # Apply Gradients
-            params = self.local_model.trainable_weights
+            params = self.local_models[0].trainable_variables
 
             grads = tape.gradient(loss, params)
 
-            grads, global_norm = tf.clip_by_global_norm(grads, self.local_model.max_grad_norm)
+            grads, global_norm = tf.clip_by_global_norm(grads, self.local_models[0].max_grad_norm)
 
             self.optimizer.apply_gradients(zip(grads, params))
 
-        # loss, value_loss, policy_loss, entropy, global_norm = self.global_model.train_batch(train_data)
+            self.refresh_local_network_params(to="Global")
+
+        # loss, value_loss, policy_loss, entropy, global_norm = self.local_models[0].train_batch(train_data)
         self.plot.collector.collect("LOSS", loss.numpy())
 
     # Produces reversed list of discounted rewards
@@ -180,7 +190,7 @@ class Coordinator:
                     all_states = np.array([])
                     all_actions = np.array([])
                     all_values = np.array([])
-                    # all_advantages = np.array([])
+                    all_advantages = np.array([])
 
                     # Calculate discounted rewards for each environment
                     for env in range(self.num_envs):
@@ -190,7 +200,7 @@ class Coordinator:
                         batch_states = []
                         batch_actions = []
                         batch_values = []
-                        # batch_advantages = []
+                        batch_advantages = []
 
                         mb = batches[env]
                         
@@ -225,11 +235,11 @@ class Coordinator:
                         # δ_t == G_t - V:      
 
                         if (not done):
-                            _, _, boot_strap = self.global_model.step(np.expand_dims(observation, axis=0), 1.0)
+                            _, _, boot_strap = self.local_models[0].step(np.expand_dims(observation, axis=0), 1.0)
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
-                            # batch_advantages = batch_rewards - batch_values
+                            batch_advantages = batch_rewards - batch_values
 
                             # Same as above...
                             # bootstrapped_values = np.asarray(batch_values + [boot_strap])
@@ -237,7 +247,7 @@ class Coordinator:
                             # advantages = self.discount(advantages, self.gamma)
 
                             all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-                            # all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
+                            all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
                             all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
@@ -250,15 +260,15 @@ class Coordinator:
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
-                            # batch_advantages = batch_rewards - batch_values
+                            batch_advantages = batch_rewards - batch_values
 
-                            # all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
+                            all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
                             all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
                             
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
-                    data = (all_states, all_actions, all_rewards)
+                    data = (all_states, all_actions, all_rewards, all_advantages)
 
                     # for state in all_states:
                     #     self.displayImage([state])

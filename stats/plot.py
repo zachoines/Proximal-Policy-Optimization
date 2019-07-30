@@ -7,7 +7,7 @@ from heapq import *
 
 
 # type what you want to display here
-dimension = "CMA"
+dimension = "LOSS"
 heap = []
 
 x, runtime, y = np.loadtxt(dimension + ".txt", delimiter=',', unpack=True)
