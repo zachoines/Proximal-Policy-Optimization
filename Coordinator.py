@@ -31,8 +31,7 @@ class Coordinator:
         self.pre_train_steps = 0
         self._currentE = 1.0
         self.anneling_steps = num_epocs * num_minibatches 
-        self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.global_model.learning_rate, epsilon=self.global_model.epsilon)
-        # self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.local_models.learning_rate, epsilon=self.local_models.epsilon)
+        
             
     # for Annealing dropout or for Annealing temperature scales from 1.0 to .1
     def _keep_prob(self):
@@ -62,20 +61,24 @@ class Coordinator:
     # Used to copy over global variables to local network 
     def refresh_local_network_params(self, to="Local"):
         if to == "Local":
-            for model in self.local_models:
-                model.set_weights(copy.deepcopy(self.global_model.get_weights()))
+            self.global_model.save_w()
+            self.local_models[0].load_w()
+            # for model in self.local_models:
+            #     model.set_weights(self.global_model.get_weights())
         else:
-            self.global_model.set_weights(copy.deepcopy(self.local_models[0].get_weights()))
+            self.local_models[0].save_w()
+            self.global_model.load_w()
+            # self.global_model.set_weights(copy.deepcopy(self.local_models[0].get_weights()))
     
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self, train_data):
         
-        batch_states, batch_actions, batch_rewards, batch_advantages=  train_data
+        batch_states, batch_actions, batch_rewards, batch_advantages = train_data
         actions = tf.Variable(batch_actions, name="Actions", trainable=False)
         rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float32)
         actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float32)
 
-        logits, action_dist, values = self.local_models[0].call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
+        logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
         
         advantages = rewards - values
 
@@ -83,45 +86,42 @@ class Coordinator:
         # print(batch_advantages)
 
         # Entropy: - ∑ P_i * Log (P_i)
-        entropy = self.local_models[0].softmax_entropy(action_dist)
+        entropy = self.global_model.softmax_entropy(action_dist)
         
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
         neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
-        policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.local_models[0].entropy_coef))
+        policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
         
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        value_loss = tf.losses.mean_squared_error(rewards, values) * self.local_models[0].value_function_coeff
+        value_loss = tf.losses.mean_squared_error(rewards, values) * self.global_model.value_function_coeff
 
         loss = policy_loss + value_loss
 
         return loss
-        # return loss.numpy(), value_loss.numpy(), policy_loss.numpy(), entropy.numpy(), global_norm.numpy()
-
-    
-       
+      
     def train(self, train_data):
         with tf.GradientTape() as tape:
             
-            for var in self.local_models[0].layers:
-                for w in var.trainable_weights:
-                    tape.watch(w)
-                for v in var.trainable_variables:
-                    tape.watch(v)
+            # for var in self.local_models[0].layers:
+            #     for w in var.trainable_weights:
+            #         tape.watch(w)
+            #     for v in var.trainable_variables:
+            #         tape.watch(v)
             
             loss = self.loss(train_data)
 
             # Apply Gradients
-            params = self.local_models[0].trainable_variables
+            params = self.global_model.trainable_variables
 
             grads = tape.gradient(loss, params)
 
-            grads, global_norm = tf.clip_by_global_norm(grads, self.local_models[0].max_grad_norm)
+            grads, global_norm = tf.clip_by_global_norm(grads, self.global_model.max_grad_norm)
 
-            self.optimizer.apply_gradients(zip(grads, params))
+            self.global_model.optimizer.apply_gradients(zip(grads, params))
 
-            self.refresh_local_network_params(to="Global")
+            self.refresh_local_network_params()
 
-        # loss, value_loss, policy_loss, entropy, global_norm = self.local_models[0].train_batch(train_data)
+       
         self.plot.collector.collect("LOSS", loss.numpy())
 
     # Produces reversed list of discounted rewards
@@ -287,7 +287,7 @@ class Coordinator:
                         except: 
                             raise
 
-                    self.global_model.save_model()
+                    self.global_model.save()
                     print("Model saved")
                 
                 except:

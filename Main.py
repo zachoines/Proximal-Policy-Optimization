@@ -115,8 +115,8 @@ if not os.path.exists('.\stats'):
 workers = []
 network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
-Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
-step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
+Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
+step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
 step_models = []
 step_models.append(step_model)
 # Load model if exists
@@ -126,10 +126,10 @@ else:
     try:
         if (os.path.exists(model_save_path + "\checkpoint")):
             
-            Global_Model.load_model()
-            
+            Global_Model.load_w()
+            step_model.load_w()
             for env in envs:
-                step_model.load_model()
+                
                 workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
             print("Model restored.")
         
@@ -153,7 +153,7 @@ coordinator = Coordinator(Global_Model, step_models, workers, plot, num_envs, nu
 # Train and save
 if coordinator.run():
     try:
-        Global_Model.save_model()
+        Global_Model.save_w()
         print("Model saved.")
         print("Now testing results....")
     except:
