@@ -115,10 +115,16 @@ if not os.path.exists('.\stats'):
 workers = []
 network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
+# Init Global and Local networks. Generate Weights for them as well.
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
+(_, hight, width, stack) = NUM_STATE
+Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
+step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
+
 step_models = []
 step_models.append(step_model)
+
 # Load model if exists
 if not os.path.exists(model_save_path):
     os.makedirs(model_save_path)
@@ -126,8 +132,8 @@ else:
     try:
         if (os.path.exists(model_save_path + "\checkpoint")):
             
-            Global_Model.load_w()
-            step_model.load_w()
+            Global_Model.load_model_weights()
+            step_model.load_model_weights()
             for env in envs:
                 
                 workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
@@ -153,7 +159,7 @@ coordinator = Coordinator(Global_Model, step_models, workers, plot, num_envs, nu
 # Train and save
 if coordinator.run():
     try:
-        Global_Model.save_w()
+        Global_Model.save_model_weights()
         print("Model saved.")
         print("Now testing results....")
     except:

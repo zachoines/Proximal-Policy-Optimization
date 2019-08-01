@@ -35,8 +35,7 @@ class AC_Model(tf.keras.Model):
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu", 
-            name="conv1",
-            trainable=is_training)
+            name="conv1" )
         
         self.maxPool1 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name="maxPool1")
 
@@ -49,8 +48,7 @@ class AC_Model(tf.keras.Model):
             activation="relu",
             name="conv2")
 
-        self.maxPool2 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name="maxPool2",
-            trainable=is_training)
+        self.maxPool2 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name="maxPool2" )
         
         # define Convolution 3
         self.conv3 = tf.keras.layers.Conv2D(
@@ -59,34 +57,28 @@ class AC_Model(tf.keras.Model):
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             padding="valid",
             activation="relu",
-            name="conv3",
-            trainable=is_training)
+            name="conv3" )
 
-        self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name ="maxPool3",
-            trainable=is_training)
-        self.flattened = tf.keras.layers.Flatten(name="flattening_layer",
-            trainable=is_training)
+        self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name ="maxPool3" )
+        self.flattened = tf.keras.layers.Flatten(name="flattening_layer" )
         self.hiddenLayer = tf.keras.layers.Dense(
             512,
             activation="relu",
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
-            name="hidden_layer",
-            trainable=is_training)
+            name="hidden_layer" )
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
             kernel_initializer=keras.initializers.Orthogonal(gain=2.0, seed=None),
             activation='linear',
-            name="value_layer",
-            trainable=is_training)
+            name="value_layer" )
    
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
             kernel_initializer=keras.initializers.Orthogonal(gain=.01, seed=None),
-            name="policy_layer",
-            trainable=is_training)
+            name="policy_layer" )
 
         # self.batch_normalization1 = tf.keras.layers.BatchNormalization()
         # self.batch_normalization2 = tf.keras.layers.BatchNormalization()
@@ -136,16 +128,16 @@ class AC_Model(tf.keras.Model):
         return logits.numpy(), softmax.numpy(), value.numpy()
 
     # Returns the critic estimation of the current state value
-    def value(self, observation):
+    def value_function(self, observation):
         action_dist, softmax, value = self.call(observation, 1.0)
         return value.numpy()[0]
 
-    def save_w(self): 
+    def save_model_weights(self): 
         current_dir = os.getcwd()   
         model_save_path = current_dir + '\Model\checkpoint.tf'
         self.save_weights(model_save_path, save_format='tf')
 
-    def load_w(self):
+    def load_model_weights(self):
         current_dir = os.getcwd()
         model_save_path = current_dir + '\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)

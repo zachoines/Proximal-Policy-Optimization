@@ -59,17 +59,11 @@ class Coordinator:
         return labels_one_hot
 
     # Used to copy over global variables to local network 
-    def refresh_local_network_params(self, to="Local"):
-        if to == "Local":
-            self.global_model.save_w()
-            self.local_models[0].load_w()
-            # for model in self.local_models:
-            #     model.set_weights(self.global_model.get_weights())
-        else:
-            self.local_models[0].save_w()
-            self.global_model.load_w()
-            # self.global_model.set_weights(copy.deepcopy(self.local_models[0].get_weights()))
-    
+    def refresh_local_network_params(self):
+        self.global_model.save_model_weights()
+        global_weights = self.global_model.get_weights()
+        self.local_models[0].set_weights(global_weights)
+       
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self, train_data):
         
@@ -82,11 +76,9 @@ class Coordinator:
         
         advantages = rewards - values
 
-        # print(advantages.numpy())
-        # print(batch_advantages)
 
         # Entropy: - ∑ P_i * Log (P_i)
-        entropy = self.global_model.softmax_entropy(action_dist)
+        entropy = self.global_model.logits_entropy(logits)
         
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
         neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
@@ -96,6 +88,11 @@ class Coordinator:
         value_loss = tf.losses.mean_squared_error(rewards, values) * self.global_model.value_function_coeff
 
         loss = policy_loss + value_loss
+        
+        print(policy_loss.numpy())
+        print(value_loss.numpy())
+        print(entropy.numpy())
+        print(loss.numpy())
 
         return loss
       
