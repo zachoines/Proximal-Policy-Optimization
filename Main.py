@@ -122,8 +122,6 @@ Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), 
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
 step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
 
-step_models = []
-step_models.append(step_model)
 
 # Load model if exists
 if not os.path.exists(model_save_path):
@@ -153,7 +151,7 @@ else:
 
 
 
-coordinator = Coordinator(Global_Model, step_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
+coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
 
 
 # Train and save

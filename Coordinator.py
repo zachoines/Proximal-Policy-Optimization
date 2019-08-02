@@ -15,9 +15,9 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, model, local_models, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
+    def __init__(self, model, local_model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
         self.global_model = model
-        self.local_models = local_models
+        self.local_model = local_model
         self.model_save_path = model_save_path
         self.workers = workers
         self.num_envs = num_envs
@@ -62,7 +62,7 @@ class Coordinator:
     def refresh_local_network_params(self):
         self.global_model.save_model_weights()
         global_weights = self.global_model.get_weights()
-        self.local_models[0].set_weights(global_weights)
+        self.local_model.set_weights(global_weights)
        
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self, train_data):
@@ -78,16 +78,19 @@ class Coordinator:
 
 
         # Entropy: - ∑ P_i * Log (P_i)
-        entropy = self.global_model.logits_entropy(logits)
+        entropy = self.global_model.softmax_entropy(action_dist)
         
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
-        neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
+        # neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
+        neg_log_prob = - tf.math.log(tf.reduce_sum(action_dist * actions_hot, axis=1) + 1e-10)
+        print(neg_log_prob.numpy())
         policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
         
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        value_loss = tf.losses.mean_squared_error(rewards, values) * self.global_model.value_function_coeff
-
+        #value_loss = tf.losses.mean_squared_error(rewards, values) * self.global_model.value_function_coeff
+        value_loss = tf.reduce_mean(tf.square(rewards - values)) * self.global_model.value_function_coeff
         loss = policy_loss + value_loss
+
         
         print(policy_loss.numpy())
         print(value_loss.numpy())
@@ -99,11 +102,11 @@ class Coordinator:
     def train(self, train_data):
         with tf.GradientTape() as tape:
             
-            # for var in self.local_models[0].layers:
-            #     for w in var.trainable_weights:
-            #         tape.watch(w)
-            #     for v in var.trainable_variables:
-            #         tape.watch(v)
+            for var in self.local_model.layers:
+                for w in var.trainable_weights:
+                    tape.watch(w)
+                for v in var.trainable_variables:
+                    tape.watch(v)
             
             loss = self.loss(train_data)
 
@@ -113,8 +116,11 @@ class Coordinator:
             grads = tape.gradient(loss, params)
 
             grads, global_norm = tf.clip_by_global_norm(grads, self.global_model.max_grad_norm)
+            
+            # optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.global_model.learning_rate, epsilon=self.global_model.epsilon)
+            optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, epsilon=1e-5)
 
-            self.global_model.optimizer.apply_gradients(zip(grads, params))
+            optimizer.apply_gradients(zip(grads, params))
 
             self.refresh_local_network_params()
 
@@ -232,7 +238,7 @@ class Coordinator:
                         # δ_t == G_t - V:      
 
                         if (not done):
-                            _, _, boot_strap = self.local_models[0].step(np.expand_dims(observation, axis=0), 1.0)
+                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), 1.0)
                             bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                             batch_rewards = discounted_rewards
@@ -283,8 +289,7 @@ class Coordinator:
                             f.close()
                         except: 
                             raise
-
-                    self.global_model.save()
+                    self.global_model.save_model_weights()
                     print("Model saved")
                 
                 except:

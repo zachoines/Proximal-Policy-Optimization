@@ -21,9 +21,7 @@ class AC_Model(tf.keras.Model):
         self.alpha = 0.99
         self.epsilon = 1e-5
 
-        self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate, epsilon=self.epsilon)
-        # self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.local_models.learning_rate, epsilon=self.local_models.epsilon)
-
+        
         # Model variables
         (_, hight, width, stack) = input_s
         self.input_def = tf.keras.layers.Input(shape=(hight, width*stack, 1), name="input_layer", dtype=tf.float32)
@@ -153,4 +151,4 @@ class AC_Model(tf.keras.Model):
 
     # standard entropy
     def softmax_entropy(self, p0):
-        return tf.reduce_sum(p0 * tf.math.log(p0 + 1e-20), axis=1)
+        return tf.reduce_sum(p0 * tf.math.log(p0 + 1e-16), axis=1)
