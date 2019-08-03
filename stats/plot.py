@@ -17,7 +17,8 @@ class Graph:
         pass
 
 # type what you want to display here
-dimension = "LENGTH"
+dimensions = ["CMA", "LENGTH", "LOSS"]
+dimension = dimensions[0]
 heap = []
 
 x, runtime, y = np.loadtxt(dimension + ".txt", delimiter=',', unpack=True)

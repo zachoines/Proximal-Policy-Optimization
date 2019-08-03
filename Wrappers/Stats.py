@@ -195,8 +195,8 @@ class AsynchronousPlot(threading.Thread):
 class Collector:
     def __init__(self):
         # datastructure is this: [( Data_name : { x_0 : y_0, x_1 : y_1, ....}), ....]
-        self.current_milli_time = lambda: int(round(time.time()))
-        self.tstart = self.current_milli_time()
+        self.current_nano_time = lambda: int(round(time.time_ns()))
+        self.tstart = self.current_nano_time()
         self.dimensions = []
         self._data = []
         self._init = False
@@ -211,7 +211,7 @@ class Collector:
 
         if (name not in self.dimensions):
             self.dimensions.append(name)
-            entry = (name, OrderedDict([run_time, (self.current_milli_time(), data)]))
+            entry = (name, OrderedDict([run_time, (self.current_nano_time(), data)]))
             self._data.append(entry)
             self._num_keys += 1
 
@@ -223,7 +223,7 @@ class Collector:
             
             try:
                 ( _ , dim_values) = next((value for key, value in enumerate(self._data) if value[0] == name), None)
-                dim_values[self._num_keys] = (self.current_milli_time(), data) 
+                dim_values[run_time] = (self.current_nano_time(), data) 
                 self._num_keys += 1
             except GeneratorExit:
                 pass
@@ -272,7 +272,7 @@ class Collector:
             return None
 
     def current_run_time(self):
-        return (self.current_milli_time() - self.tstart)
+        return (self.current_nano_time() - self.tstart)
   
 
         
