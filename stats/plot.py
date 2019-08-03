@@ -6,15 +6,24 @@ from scipy import stats
 from heapq import *
 
 
+class Graph:
+    def __init__(self):
+        pass
+    def linear(self):
+        pass
+    def log(self):
+        pass
+    def exp(self):
+        pass
+
 # type what you want to display here
-dimension = "LOSS"
+dimension = "LENGTH"
 heap = []
 
 x, runtime, y = np.loadtxt(dimension + ".txt", delimiter=',', unpack=True)
-
-for i in range(len(x)):
+for i in range(len(runtime)):
     data = y[i]
-    time = x[i]
+    time = runtime[i]
     item = (time, data)
     heappush(heap, item)
 

@@ -15,14 +15,14 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, model, local_model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path):
+    def __init__(self, model, local_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
         self.global_model = model
         self.local_model = local_model
         self.model_save_path = model_save_path
         self.workers = workers
         self.num_envs = num_envs
         self.num_epocs = num_epocs
-        self.num_minibatches = num_minibatches
+        self.batches_per_epoch = batches_per_epoch
         self.batch_size = batch_size
         self.gamma = gamma
         self.total_loss = 0
@@ -30,7 +30,7 @@ class Coordinator:
         self.total_steps = 0
         self.pre_train_steps = 0
         self._currentE = 1.0
-        self.anneling_steps = num_epocs * num_minibatches 
+        self.anneling_steps = anneling_steps
         
             
     # for Annealing dropout or for Annealing temperature scales from 1.0 to .1
@@ -60,7 +60,6 @@ class Coordinator:
 
     # Used to copy over global variables to local network 
     def refresh_local_network_params(self):
-        self.global_model.save_model_weights()
         global_weights = self.global_model.get_weights()
         self.local_model.set_weights(global_weights)
        
@@ -71,31 +70,20 @@ class Coordinator:
         actions = tf.Variable(batch_actions, name="Actions", trainable=False)
         rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float32)
         actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float32)
-
         logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
         
         advantages = rewards - values
-
 
         # Entropy: - ∑ P_i * Log (P_i)
         entropy = self.global_model.softmax_entropy(action_dist)
         
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
-        # neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=actions_hot)
         neg_log_prob = - tf.math.log(tf.reduce_sum(action_dist * actions_hot, axis=1) + 1e-10)
-        print(neg_log_prob.numpy())
         policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
         
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        #value_loss = tf.losses.mean_squared_error(rewards, values) * self.global_model.value_function_coeff
         value_loss = tf.reduce_mean(tf.square(rewards - values)) * self.global_model.value_function_coeff
         loss = policy_loss + value_loss
-
-        
-        print(policy_loss.numpy())
-        print(value_loss.numpy())
-        print(entropy.numpy())
-        print(loss.numpy())
 
         return loss
       
@@ -122,10 +110,16 @@ class Coordinator:
 
             optimizer.apply_gradients(zip(grads, params))
 
-            self.refresh_local_network_params()
+        self.collect_stats("LOSS", loss.numpy())
 
-       
-        self.plot.collector.collect("LOSS", loss.numpy())
+    # request access to collector and record stats
+    def collect_stats(self, key, value):
+        while self.plot.busy_notice():
+            continue
+        self.plot.stop_request()
+        self.plot.collector.collect(key, value)
+        self.plot.continue_request()
+
 
     # Produces reversed list of discounted rewards
     def discount(self, x, gamma):
@@ -156,6 +150,9 @@ class Coordinator:
             for _ in range(self.num_epocs):
 
                 # ready workers for the next epoc, sync with live plot
+                while self.plot.busy_notice():
+                    continue
+                
                 self.plot.stop_request()
                 
                 for worker in self.workers:
@@ -165,7 +162,7 @@ class Coordinator:
         
 
                 # loop for generating a training session a batch at a time
-                for mb in range(self.num_minibatches):
+                for mb in range(self.batches_per_epoch):
                     
                     self.total_steps += 1   
                     
@@ -210,6 +207,7 @@ class Coordinator:
                         # Empty batch
                         if mb == [] or mb == None:
                             continue
+
 
                         # For every step made in this env for this particular batch
                         done = False
@@ -273,9 +271,6 @@ class Coordinator:
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
                     data = (all_states, all_actions, all_rewards, all_advantages)
 
-                    # for state in all_states:
-                    #     self.displayImage([state])
-                    
                     if data[0].size != 0:
                         self.train(data) 
                     else:
@@ -289,14 +284,16 @@ class Coordinator:
                             f.close()
                         except: 
                             raise
+                    
                     self.global_model.save_model_weights()
+
                     print("Model saved")
                 
                 except:
                     print("ERROR: There was an issue saving the model!")
                     raise
 
-            print("Training session was sucessfull.")
+            print("Training session was succesfull.")
             return True 
 
         except:

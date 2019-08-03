@@ -28,8 +28,7 @@ class Monitor(ObservationWrapper):
 
     def step(self, action):
         observation, reward, done, info = self.env.step(action)
-        # if (not done):
-        #     self._fps = 1.0 / (time.time() - self._start_time)
+
         if self._record:
             return self.observation(observation), reward, done, info
         else:
@@ -67,16 +66,3 @@ class Monitor(ObservationWrapper):
         cv2.waitKey(0)
         cv2.destroyAllWindows()
  
-    def _convert_frames_to_video(self):
- 
-        # TODO:: Set option to read images from files at end of episode to
-        # then create a video image
-        if (False):
-            for filename in glob.glob('./Images/*.jpg'):
-                img = cv2.imread(filename)
-                size = (self._width, self._height)
-                img_array.append(img)
-        else:   
-            if (len(img_array)):   
-                size = (self._width, self._height)
-        

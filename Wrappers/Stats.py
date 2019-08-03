@@ -24,6 +24,7 @@ class Stats(RewardWrapper):
     def reset(self, **kwargs):
         if self.numSteps > 0:
             self.collector.collect('CMA', self.CMA)
+            self.collector.collect('LENGTH', self.numSteps)
         self.numSteps = 0
         self.CMA = 0
         return self.env.reset(**kwargs)
@@ -84,7 +85,9 @@ class AsynchronousPlot(threading.Thread):
         else:
             while not self._kill.isSet():
                 self._write_results()
-                time.sleep(10)
+                time.sleep(1)
+    def busy_notice(self):
+        return self._busy.isSet()
     
     def continue_request(self):
         self._stoprequest.clear()
@@ -109,6 +112,8 @@ class AsynchronousPlot(threading.Thread):
     def _write_results(self):
 
         if not self._stoprequest.isSet():
+
+            self._busy.set()
             
             if (len(self.collector.dimensions) > 0):
                 
@@ -125,17 +130,21 @@ class AsynchronousPlot(threading.Thread):
                             while len(data) > 0:
                                 (x, (t, y)) = data.popitem(last = True)
                                 f.write(str(t) + ", " + str(x) + ", " + str(y) + "\n")  
-                
+
                 except:
                     
                     f.close()
                     print("Issue writing results.")
                     raise
+
+            self._busy.clear()
                 
 
     def _update_graph(self, i):
         
         if not self._stoprequest.isSet():
+
+            self._busy.set()
             
             if (len(self.collector.dimensions) > 0):
                 
@@ -165,11 +174,15 @@ class AsynchronousPlot(threading.Thread):
                             self._axis[i].set_xlim(min(xs), max(xs))
                             self._axis[i].set_ylim(min(ys), max(ys))
                             
+                            self._busy.clear()
                             return self._lines
-                
+
+                self._busy.clear()
                 return self._lines
 
             else:
+
+                self._busy.clear()
 
                 # Not ready to show anything
                 return self._lines 
@@ -188,6 +201,10 @@ class Collector:
         self._data = []
         self._init = False
 
+        # Because of async nature of access to collector,
+        # we store total keys, and store on key number.
+        self._num_keys = 0
+
     def collect(self, name, data):
         
         run_time = self.current_run_time()
@@ -196,26 +213,28 @@ class Collector:
             self.dimensions.append(name)
             entry = (name, OrderedDict([run_time, (self.current_milli_time(), data)]))
             self._data.append(entry)
+            self._num_keys += 1
 
         elif self.get_dimension(name) == None:
             entry = (name, OrderedDict([]))
             self._data.append(entry)
+            self._num_keys += 1
         else:
-            
-            dim_values = None
             
             try:
                 ( _ , dim_values) = next((value for key, value in enumerate(self._data) if value[0] == name), None)
-                dim_values[run_time] = (self.current_milli_time(), data) 
+                dim_values[self._num_keys] = (self.current_milli_time(), data) 
+                self._num_keys += 1
             except GeneratorExit:
                 pass
+    
+
     
     def pop(self, name):
         data = self.get_dimension(name)
         
         if data == None or len(data) == 0:
             return None
-
         
         return data.popitem(last = True)
 
@@ -224,7 +243,6 @@ class Collector:
                 
     def get_dimensions(self):
         return self.dimensions
-
 
     def get_dimension(self, name):
 

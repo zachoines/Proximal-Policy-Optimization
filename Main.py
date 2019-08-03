@@ -5,6 +5,7 @@
 import threading
 from multiprocessing import Process
 import os
+import sys
 import numpy as np
 import tensorflow as tf
 
@@ -36,7 +37,7 @@ def get_available_gpus():
 
 # GPU configuration
 gpus = tf.config.experimental.list_physical_devices('GPU')
-tf.config.threading.set_inter_op_parallelism_threads(6)
+tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 if gpus:
   try:
@@ -66,8 +67,8 @@ env_3 = 'SuperMarioBros2-v0'
 env_4 = 'SuperMarioBros2-v0'
 env_5 = 'SuperMarioBros-v0'
 
-env_names = [env_1, env_2, env_3, env_4]
-# env_names = [env_1, env_3]
+# env_names = [env_1, env_2, env_3, env_4]
+env_names = [env_1, env_2, env_3]
 
 # Configuration
 current_dir = os.getcwd()
@@ -78,15 +79,16 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-num_minibatches = 512
+batches_per_epoch = sys.maxsize
 num_epocs = 512 * 4
 gamma = .99
 learning_rate = 7e-4
+anneling_steps = num_epocs**2 
 
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions(["CMA", "LOSS"])
+collector.set_dimensions(["CMA", "LOSS", "LENGTH"])
 plot = AsynchronousPlot(collector, live=False)
 
 # Apply env wrappers
@@ -103,7 +105,7 @@ for env in env_names:
 (HEIGHT, WIDTH, CHANNELS) = envs[0].observation_space.shape
 NUM_ACTIONS = envs[0].env.action_space.n
 ACTION_SPACE = envs[0].env.action_space
-NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)
+NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)  
 
 if not os.path.exists(video_save_path):
     os.makedirs(video_save_path)
@@ -151,7 +153,7 @@ else:
 
 
 
-coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, num_minibatches, batch_size, gamma, model_save_path)
+coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
 
 
 # Train and save

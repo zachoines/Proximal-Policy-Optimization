@@ -54,7 +54,7 @@ class Worker():
             if not self._done:
                 self.total_steps += 1
                 [logits], [action_dist] , value = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
-                action = self.action_select(logits, exploration="Epsilon_greedy", temperature=1.0)
+                action = self.action_select(logits, exploration="boltzmann", temperature=1.0 - keep_prob)
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
@@ -82,7 +82,7 @@ class Worker():
             
 
     # Boltzmann Softmax style action selection
-    def action_select(self, dist, exploration="boltzmann", temperature=.8, epsilon=.1):
+    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.1):
         
 
         if exploration == "boltzmann":        
@@ -92,7 +92,7 @@ class Worker():
             probs = dist == a
             a = np.argmax(probs)
 
-            # exp_preds = np.exp((dist + 1e-16) / temperature ).astype("float64")
+            # exp_preds = np.exp((dist + 1e-20) / temperature ).astype("float64")
             # preds = exp_preds / np.sum(exp_preds)
             
             # [probas] = np.random.multinomial(1, dist, 1)
