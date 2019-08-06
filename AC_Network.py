@@ -62,7 +62,7 @@ class AC_Model(tf.keras.Model):
         self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name ="maxPool3", trainable=is_training )
         self.flattened = tf.keras.layers.Flatten(name="flattening_layer", trainable=is_training )
         self.hiddenLayer = tf.keras.layers.Dense(
-            512,
+            128,
             activation="relu",
             kernel_initializer=keras.initializers.Orthogonal(gain=1.0, seed=1),
             name="hidden_layer", 
@@ -98,24 +98,24 @@ class AC_Model(tf.keras.Model):
         # Feature maps one
         conv1_out = self.conv1(input_image)
         # conv1_out = self.batch_reg1(conv1_out)
-        maxPool1_out = self.maxPool1(conv1_out)
+        # maxPool1_out = self.maxPool1(conv1_out)
         # maxPool1_out = self.spatial_dropout1(maxPool1_out)
 
         # Feature maps two
-        conv2_out = self.conv2(maxPool1_out)
+        conv2_out = self.conv2(conv1_out)
         # conv2_out = self.batch_reg2(conv2_out)
-        maxPool2_out = self.maxPool2(conv2_out)
+        # maxPool2_out = self.maxPool2(conv2_out)
         # maxPool2_out = self.spatial_dropout2(maxPool2_out)
 
         # Feature maps three
-        conv3_out = self.conv3(maxPool2_out)
+        conv3_out = self.conv3(conv2_out)
         # conv3_out = self.batch_reg3(conv3_out)
-        maxPool3_out = self.maxPool3(conv3_out)
+        # maxPool3_out = self.maxPool3(conv3_out)
         # maxPool3_out = self.spatial_dropout2(maxPool3_out)
         
         # Linear layers
-        hidden_out = self.flattened(maxPool3_out)
-        # hidden_out = self.linear_dropout(hidden_out)
+        hidden_out = self.flattened(conv3_out)
+        hidden_out = self.linear_dropout(hidden_out)
 
         # Actor and the Critic outputs
         self.value = self._value(hidden_out)

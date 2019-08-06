@@ -68,7 +68,7 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 16
+batch_size = 8
 batches_per_epoch = sys.maxsize
 num_epocs = 512 * 4
 gamma = .99
@@ -88,7 +88,7 @@ for env in env_names:
     # env = JoypadSpace(env, SIMPLE_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
     env = preprocess.GrayScaleImage(env, height=96, width=96, grayscale=True)
-    env = preprocess.FrameStack(env, 4)
+    # env = preprocess.FrameStack(env, 4)
     env = Stats(env, collector)
     envs.append(env)
 
