@@ -19,9 +19,9 @@ print("GPU Available: ", tf.test.is_gpu_available())
 
 # Importing the packages for OpenAI and MARIO
 import gym
-from nes_py.wrappers import JoypadSpace
-import gym_super_mario_bros
-from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
+# from nes_py.wrappers import JoypadSpace
+# import gym_super_mario_bros
+# from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
 # Locally defined classes
 from Wrappers import preprocess
@@ -49,26 +49,16 @@ if gpus:
     print(e)
 
 
-CUSTOM_MOVEMENT = [
-    ['NOOP'],
-    ['right'],
-    ['right', 'A'],
-    ['right', 'B'],
-    ['right', 'A', 'B'],
-    ['A', 'right'],
-    ['A'],
-    ['left'],
-]
-
 # Environments to run
-env_1 = 'SuperMarioBros-v0'
-env_2 = 'SuperMarioBros-v0'
-env_3 = 'SuperMarioBros2-v0'
-env_4 = 'SuperMarioBros2-v0'
-env_5 = 'SuperMarioBros-v0'
+env_1 = 'BreakoutDeterministic-v4'
+env_2 = 'Breakout-v4'
+env_3 = 'BreakoutDeterministic-v0'
+env_4 = 'MsPacmanDeterministic-v4'
+env_5 = 'MsPacman-v0'
+
 
 # env_names = [env_1, env_2, env_3, env_4]
-env_names = [env_1, env_2, env_3]
+env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -93,9 +83,9 @@ plot = AsynchronousPlot(collector, live=False)
 
 # Apply env wrappers
 for env in env_names:
-    env = gym_super_mario_bros.make(env) 
-    env = preprocess.FrameSkip(env, 4)
-    env = JoypadSpace(env, SIMPLE_MOVEMENT)
+    env = gym.make(env) 
+    # env = preprocess.FrameSkip(env, 4)
+    # env = JoypadSpace(env, SIMPLE_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
     env = preprocess.GrayScaleImage(env, height=96, width=96, grayscale=True)
     env = preprocess.FrameStack(env, 4)
@@ -121,7 +111,7 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 (_, hight, width, stack) = NUM_STATE
 Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
-step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
+step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
 
 
@@ -135,8 +125,8 @@ else:
             Global_Model.load_model_weights()
             step_model.load_model_weights()
             for env in envs:
-                
                 workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
+            
             print("Model restored.")
         
         else:
@@ -149,12 +139,7 @@ else:
         print("ERROR: There was an issue loading the model!")
         raise
 
-
-
-
-
 coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
-
 
 # Train and save
 if coordinator.run():

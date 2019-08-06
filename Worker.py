@@ -54,11 +54,11 @@ class Worker():
             if not self._done:
                 self.total_steps += 1
                 [logits], [action_dist] , value = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
-                action = self.action_select(logits, exploration="boltzmann", temperature=1.0 - keep_prob)
+                action = self.action_select(logits, exploration="Epsilon_greedy")
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
-                batch.append((self.s, s_t , reward / 15.0, value, action, d, logits.tolist()))
+                batch.append((self.s, s_t , reward, value, action, d, logits.tolist()))
                 self.s = s_t
 
                 # render the env
@@ -82,14 +82,15 @@ class Worker():
             
 
     # Boltzmann Softmax style action selection
-    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.1):
+    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.05):
         
 
         if exploration == "boltzmann":        
 
-            dist = tf.nn.softmax(dist/temperature).numpy()
+            dist = tf.nn.softmax(dist).numpy()
             a = np.random.choice(dist,p=dist)
             probs = dist == a
+            probs = dist
             a = np.argmax(probs)
 
             # exp_preds = np.exp((dist + 1e-20) / temperature ).astype("float64")
@@ -106,7 +107,8 @@ class Worker():
         
         elif exploration == "Epsilon_greedy":
             
-            if random.random() < epsilon:
+            # Scale epsilon down to near 0.0 by multiplying .9 ... .1
+            if random.random() < (epsilon):
                 
                 return random.randint(0, self.NUM_ACTIONS-1)
 

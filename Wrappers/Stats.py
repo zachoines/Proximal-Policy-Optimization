@@ -64,8 +64,6 @@ class AsynchronousPlot(threading.Thread):
 
                     axis = self._fig.add_subplot(2,1, counter)
                     axis.autoscale_view()
-                    # axis.set_title(name)
-                    # line = matplotlib.lines.Line2D([0], [0], label = name)
                     line, = axis.plot([], [], label = name)
                     axis.set_xlabel('time')
                     axis.set_ylabel(name)

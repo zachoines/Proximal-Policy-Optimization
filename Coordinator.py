@@ -33,7 +33,7 @@ class Coordinator:
         self.anneling_steps = anneling_steps
         
             
-    # for Annealing dropout or for Annealing temperature scales from 1.0 to .1
+    # Annealing temperature scales from .1 to 1.0
     def _keep_prob(self):
         keep_per = lambda: (1.0 - self._currentE) + 0.1
         startE = 1.0
@@ -76,14 +76,25 @@ class Coordinator:
 
         # Entropy: - ∑ P_i * Log (P_i)
         entropy = self.global_model.softmax_entropy(action_dist)
-        
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
         neg_log_prob = - tf.math.log(tf.reduce_sum(action_dist * actions_hot, axis=1) + 1e-10)
         policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
+
+        
+
+
+        en = tf.nn.softmax_cross_entropy_with_logits(labels=action_dist, logits=logits)
+        n = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits) * tf.stop_gradient(advantages)
+        # policy_loss = tf.reduce_mean(neg_log_prob - self.global_model.entropy_coef * entropy)
         
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        value_loss = tf.reduce_mean(tf.square(rewards - values)) * self.global_model.value_function_coeff
+        value_loss = tf.reduce_mean(tf.square(advantages)) * self.global_model.value_function_coeff
         loss = policy_loss + value_loss
+
+        # print(entropy.numpy())
+        # print(policy_loss.numpy())
+        # print(value_loss.numpy())
+        # print(loss.numpy())
 
         return loss
       
@@ -127,7 +138,7 @@ class Coordinator:
 
     # for debugging processed images
     def displayImage(self, img):
-        cv2.imshow('image', np.squeeze(img, axis=0))
+        cv2.imshow('image', img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
@@ -220,6 +231,7 @@ class Coordinator:
                             batch_rewards.append(reward)
                             batch_observations.append(observation)
                             batch_states.append(state)
+                            
                             batch_values.append(value)
 
                         
