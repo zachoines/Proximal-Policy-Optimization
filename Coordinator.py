@@ -75,17 +75,13 @@ class Coordinator:
         advantages = rewards - values
 
         # Entropy: - ∑ P_i * Log (P_i)
-        entropy = self.global_model.softmax_entropy(action_dist)
+        # entropy = self.global_model.softmax_entropy(action_dist)
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
-        neg_log_prob = - tf.math.log(tf.reduce_sum(action_dist * actions_hot, axis=1) + 1e-10)
-        policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
-
-        
-
-
-        en = tf.nn.softmax_cross_entropy_with_logits(labels=action_dist, logits=logits)
-        n = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits) * tf.stop_gradient(advantages)
-        # policy_loss = tf.reduce_mean(neg_log_prob - self.global_model.entropy_coef * entropy)
+        # neg_log_prob = - tf.math.log(tf.reduce_sum(action_dist * actions_hot, axis=1) + 1e-10)
+        # policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
+        entropy = self.global_model.logits_entropy(logits)
+        neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits) * tf.stop_gradient(advantages)
+        policy_loss = tf.reduce_mean(neg_log_prob - self.global_model.entropy_coef * entropy)
         
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
         value_loss = tf.reduce_mean(tf.square(advantages)) * self.global_model.value_function_coeff
