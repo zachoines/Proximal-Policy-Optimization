@@ -80,13 +80,26 @@ class Coordinator:
         # neg_log_prob = - tf.math.log(tf.reduce_sum(action_dist * actions_hot, axis=1) + 1e-10)
         # policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
         
-        entropy = self.global_model.logits_entropy(logits)
-        neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits) * tf.stop_gradient(advantages)
-        policy_loss = tf.reduce_mean(neg_log_prob - self.global_model.entropy_coef * entropy)
+        # entropy = self.global_model.logits_entropy(logits)
+        # neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits) * tf.stop_gradient(advantages)
+        # policy_loss = tf.reduce_mean(neg_log_prob - self.global_model.entropy_coef * entropy)
         
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        value_loss = tf.reduce_mean(tf.square(rewards - values) * self.global_model.value_function_coeff)
-        loss = value_loss + policy_loss
+        # value_loss = tf.reduce_mean(tf.square(rewards - values) * self.global_model.value_function_coeff)
+        # loss = value_loss + policy_loss
+
+        value_loss = advantages ** 2
+
+        # Calculate our policy loss
+        policy = action_dist
+        entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
+
+        policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions,
+                                                                    logits=logits)
+        policy_loss *= tf.stop_gradient(advantages)
+        policy_loss -= 0.01 * entropy
+        total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
+        return total_loss
 
 
         # print(entropy.numpy())
@@ -94,7 +107,7 @@ class Coordinator:
         # print(value_loss.numpy())
         # print(loss.numpy())
 
-        return loss
+        # return loss
       
     def train(self, train_data):
         with tf.GradientTape() as tape:
@@ -130,9 +143,21 @@ class Coordinator:
         self.plot.continue_request()
 
 
-    # Produces reversed list of discounted rewards
+    # Produces reversed list of discounted values
     def discount(self, x, gamma):
         return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
+
+    # Produces reversed list of bootstrapped discounted r
+    def rewards_discounted(self, rewards, gamma, bootstrap):
+        
+        discounted_rewards = []
+        reward_sum = bootstrap
+        
+        for reward in rewards[::-1]:  
+            reward_sum = reward + gamma * reward_sum
+            discounted_rewards.append(reward_sum)
+        result = discounted_rewards[::-1]
+        return result
 
     # for debugging processed images
     def displayImage(self, img):
@@ -247,10 +272,11 @@ class Coordinator:
 
                         if (not done):
                             _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), 1.0)
-                            bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
-                            discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
-                            batch_rewards = discounted_rewards
-                            batch_advantages = batch_rewards - batch_values
+                            # bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
+                            # discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
+                            discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)
+                            batch_rewards = discounted_bootstrapped_rewards
+                            batch_advantages = list(set(batch_rewards) - set(batch_values))
 
                             # Same as above...
                             # bootstrapped_values = np.asarray(batch_values + [boot_strap])
@@ -262,27 +288,43 @@ class Coordinator:
                             all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+
+                            data = (batch_states, batch_actions, batch_rewards, batch_advantages)
+
+                            if len(data[0]) != 0:
+                                self.train(data) 
+                            else:
+                                break
                            
                         else:
                             
                             boot_strap = 0
+                            # bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
+                            # discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
+                            discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)
+                            batch_rewards = discounted_bootstrapped_rewards
+                            batch_advantages = list(set(batch_rewards) - set(batch_values))
 
                             all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-                            bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
-                            discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
-                            batch_rewards = discounted_rewards
-                            batch_advantages = batch_rewards - batch_values
-
                             all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
                             all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+
+                            data = (batch_states, batch_actions, batch_rewards, batch_advantages)
+
+                            if len(data[0]) != 0:
+                                self.train(data) 
+                            else:
+                                break
+                        
                             
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
                     data = (all_states, all_actions, all_rewards, all_advantages)
 
-                    if data[0].size != 0:
-                        self.train(data) 
+                    if len(data[0]) != 0:
+                        continue
+                        #self.train(data) 
                     else:
                         break
 

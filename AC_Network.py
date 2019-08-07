@@ -28,7 +28,8 @@ class AC_Model(tf.keras.Model):
         # Define Convolution 1
         self.conv1 = tf.keras.layers.Conv2D(
             filters=32,
-            kernel_size=[7, 7],
+            kernel_size=[8, 8],
+            strides=(3, 3),
             kernel_initializer=keras.initializers.Orthogonal(gain=1.0, seed=1),
             padding="valid",
             activation="relu", 
@@ -40,7 +41,8 @@ class AC_Model(tf.keras.Model):
         # define Convolution 2
         self.conv2 = tf.keras.layers.Conv2D(
             filters=64,
-            kernel_size=[5, 5],
+            kernel_size=[3, 3],
+            strides=(2, 2),
             kernel_initializer=keras.initializers.Orthogonal(gain=1.0, seed=1),
             padding="valid",
             activation="relu",
@@ -51,8 +53,9 @@ class AC_Model(tf.keras.Model):
         
         # define Convolution 3
         self.conv3 = tf.keras.layers.Conv2D(
-            filters=96,
-            kernel_size=[3, 3],
+            filters=64,
+            kernel_size=[2, 2],
+            strides=(1, 1),
             kernel_initializer=keras.initializers.Orthogonal(gain=1.0, seed=1),
             padding="valid",
             activation="relu",
@@ -118,11 +121,11 @@ class AC_Model(tf.keras.Model):
         hidden_out = self.linear_dropout(hidden_out)
 
         # Actor and the Critic outputs
-        self.value = self._value(hidden_out)
-        self.logits = self._policy(hidden_out)
-        self.action_dist = tf.nn.softmax(self.logits)
+        value = self._value(hidden_out)
+        logits = self._policy(hidden_out)
+        action_dist = tf.nn.softmax(logits)
 
-        return self.logits, self.action_dist, tf.squeeze(self.value)
+        return logits, action_dist, tf.squeeze(value)
     
     # Makes a step in the environment
     def step(self, observation, keep_per):

@@ -83,7 +83,7 @@ class AsynchronousPlot(threading.Thread):
         else:
             while not self._kill.isSet():
                 self._write_results()
-                time.sleep(1)
+                time.sleep(5)
     def busy_notice(self):
         return self._busy.isSet()
     

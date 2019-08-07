@@ -58,7 +58,7 @@ env_5 = 'MsPacman-v0'
 
 
 # env_names = [env_1, env_2, env_3, env_4]
-env_names = [env_1]
+env_names = ['Breakout-v0']
 
 # Configuration
 current_dir = os.getcwd()
