@@ -57,7 +57,7 @@ env_4 = 'MsPacmanDeterministic-v4'
 env_5 = 'MsPacman-v0'
 
 
-# env_names = [env_1, env_2, env_3, env_4]
+# env_names = [env_4, env_5]
 env_names = [env_1, 'Breakout-v0', ]
 
 # Configuration
@@ -111,7 +111,7 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 (_, hight, width, stack) = NUM_STATE
 Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
-step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
+step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
 step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
 
 

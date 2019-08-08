@@ -31,6 +31,7 @@ class Coordinator:
         self.pre_train_steps = 0
         self._currentE = 1.0
         self.anneling_steps = anneling_steps
+        self._train_data = None
         
             
     # Annealing temperature scales from .1 to 1.0
@@ -64,9 +65,9 @@ class Coordinator:
         self.local_model.set_weights(global_weights)
        
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
-    def loss(self, train_data):
+    def loss(self):
         
-        batch_states, batch_actions, batch_rewards, batch_advantages = train_data
+        batch_states, batch_actions, batch_rewards, batch_advantages = self._train_data
         actions = tf.Variable(batch_actions, name="Actions", trainable=False)
         rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float32)
         actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float32)
@@ -74,40 +75,42 @@ class Coordinator:
         
         advantages = rewards - values
 
+        # Version 1
+
         # Entropy: - ∑ P_i * Log (P_i)
         # entropy = self.global_model.softmax_entropy(action_dist)
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
         # neg_log_prob = - tf.math.log(tf.reduce_sum(action_dist * actions_hot, axis=1) + 1e-10)
         # policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
-        
         # entropy = self.global_model.logits_entropy(logits)
         # neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits) * tf.stop_gradient(advantages)
         # policy_loss = tf.reduce_mean(neg_log_prob - self.global_model.entropy_coef * entropy)
-        
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
         # value_loss = tf.reduce_mean(tf.square(rewards - values) * self.global_model.value_function_coeff)
-        # loss = value_loss + policy_loss
+        # return value_loss + policy_loss
 
-        value_loss = advantages ** 2
+        # Version 2
 
-        # Calculate our policy loss
-        policy = action_dist
-        entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
+        # value_loss = advantages ** 2
+        # policy = action_dist
+        # entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
+        # policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits)
+        # policy_loss *= tf.stop_gradient(advantages)
+        # policy_loss -= 0.01 * entropy
+        # total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
+        # return total_loss
 
-        policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions,
-                                                                    logits=logits)
-        policy_loss *= tf.stop_gradient(advantages)
-        policy_loss -= 0.01 * entropy
-        total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
-        return total_loss
+        # Version 3
 
+        log_prob = tf.math.log( tf.reduce_sum(action_dist * actions_hot, axis=1, keepdims=True) + 1e-10)
+        loss_policy = -log_prob * tf.stop_gradient(advantages)									
+        loss_value  = 0.5 * tf.square(advantages)												
+        entropy = 0.01 * tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-10), axis=1, keepdims=True)	
 
-        # print(entropy.numpy())
-        # print(policy_loss.numpy())
-        # print(value_loss.numpy())
-        # print(loss.numpy())
+        loss_total = tf.reduce_mean(loss_policy + loss_value + entropy)
+        self._last_batch_loss = loss_total
 
-        # return loss
+        return loss_total
       
     def train(self, train_data):
         with tf.GradientTape() as tape:
@@ -118,21 +121,23 @@ class Coordinator:
                 for v in var.trainable_variables:
                     tape.watch(v)
             
-            loss = self.loss(train_data)
+            self._train_data = train_data
 
             # Apply Gradients
             params = self.global_model.trainable_variables
 
-            grads = tape.gradient(loss, params)
+            # grads = tape.gradient(params, loss)
 
-            grads, global_norm = tf.clip_by_global_norm(grads, self.global_model.max_grad_norm)
+            # grads, global_norm = tf.clip_by_global_norm(grads, self.global_model.max_grad_norm)
             
             # optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.global_model.learning_rate, epsilon=self.global_model.epsilon)
-            optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, epsilon=1e-5)
+            # optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, epsilon=1e-5)
+            optimizer = tf.keras.optimizers.RMSprop(learning_rate=5e-3)
+            optimizer.minimize(self.loss, var_list=params)
 
-            optimizer.apply_gradients(zip(grads, params))
+            # optimizer.apply_gradients(zip(grads, params))
 
-        self.collect_stats("LOSS", loss.numpy())
+        self.collect_stats("LOSS", self._last_batch_loss.numpy())
 
     # request access to collector and record stats
     def collect_stats(self, key, value):

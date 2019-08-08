@@ -118,7 +118,7 @@ class AC_Model(tf.keras.Model):
         
         # Linear layers
         hidden_out = self.flattened(conv3_out)
-        hidden_out = self.linear_dropout(hidden_out)
+        # hidden_out = self.linear_dropout(hidden_out)
 
         # Actor and the Critic outputs
         value = self._value(hidden_out)
