@@ -58,7 +58,7 @@ env_5 = 'MsPacman-v0'
 
 
 # env_names = [env_1, env_2, env_3, env_4]
-env_names = ['Breakout-v0']
+env_names = [env_1, 'Breakout-v0', ]
 
 # Configuration
 current_dir = os.getcwd()
@@ -88,7 +88,7 @@ for env in env_names:
     # env = JoypadSpace(env, SIMPLE_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
     env = preprocess.GrayScaleImage(env, height=96, width=96, grayscale=True)
-    # env = preprocess.FrameStack(env, 4)
+    env = preprocess.FrameStack(env, 4)
     env = Stats(env, collector)
     envs.append(env)
 

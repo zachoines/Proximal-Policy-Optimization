@@ -12,13 +12,13 @@ from heapq import *
 line_types = ["linear", "log"]
 line_type = line_types[1]
 dimensions = ["CMA", "LENGTH", "LOSS"]
-dimension = dimensions[0]
+dimension = dimensions[2]
 
 # load in data and sort
 heap = []
 x, runtime, y = np.loadtxt(dimension + ".txt", delimiter=',', unpack=True)
 for i in range(len(runtime)):
-    data = y[i]
+    data = abs(y[i])
     time = runtime[i]
     item = (time, data)
     heappush(heap, item)

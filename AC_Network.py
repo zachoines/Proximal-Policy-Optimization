@@ -65,7 +65,7 @@ class AC_Model(tf.keras.Model):
         self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), name ="maxPool3", trainable=is_training )
         self.flattened = tf.keras.layers.Flatten(name="flattening_layer", trainable=is_training )
         self.hiddenLayer = tf.keras.layers.Dense(
-            128,
+            256,
             activation="relu",
             kernel_initializer=keras.initializers.Orthogonal(gain=1.0, seed=1),
             name="hidden_layer", 
@@ -94,7 +94,7 @@ class AC_Model(tf.keras.Model):
         self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(rate=.5, seed=1, trainable=is_training)
         self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(rate=.5, seed=1, trainable=is_training)
         self.spatial_dropout3 = tf.keras.layers.SpatialDropout2D(rate=.5, seed=1, trainable=is_training)
-        self.linear_dropout = tf.keras.layers.Dropout(rate=.5, seed=1, trainable=is_training)
+        self.linear_dropout = tf.keras.layers.Dropout(rate=.7, seed=1, trainable=is_training)
 
     def call(self, input_image, keep_p=1.0):
 
