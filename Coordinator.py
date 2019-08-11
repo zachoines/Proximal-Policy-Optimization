@@ -31,8 +31,22 @@ class Coordinator:
         self.pre_train_steps = 0
         self._currentE = 1.0
         self.anneling_steps = anneling_steps
+        self._current_annealed_prob = 1.0
         self._train_data = None
-        
+ 
+    # Annealing entropy to encourage convergence later: 1.0 to 0.01
+    def _current_entropy(self):
+        startE = 1.0
+        endE = 0.01 
+
+        # Final chance of random action
+        stepDrop = (startE - endE) / self.anneling_steps
+
+        if self._current_annealed_prob >= endE:
+            self._current_annealed_prob -= stepDrop
+            return self._current_annealed_prob
+        else:
+            return 0.01 
             
     # Annealing temperature scales from .1 to 1.0
     def _keep_prob(self):
@@ -77,17 +91,18 @@ class Coordinator:
 
         # Version 1
 
-        # Entropy: - ∑ P_i * Log (P_i)
-        # entropy = self.global_model.softmax_entropy(action_dist)
+        # Entropy: (1 / n) * - ∑ P_i * Log (P_i)
+        entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
+
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
-        # neg_log_prob = - tf.math.log(tf.reduce_sum(action_dist * actions_hot, axis=1) + 1e-10)
-        # policy_loss = tf.reduce_mean((neg_log_prob * tf.stop_gradient(advantages)) - (entropy * self.global_model.entropy_coef))
-        # entropy = self.global_model.logits_entropy(logits)
-        # neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits) * tf.stop_gradient(advantages)
-        # policy_loss = tf.reduce_mean(neg_log_prob - self.global_model.entropy_coef * entropy)
+        neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
+        policy_loss = tf.reduce_mean(neg_log_prob * advantages.numpy() * 0.5)
+
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        # value_loss = tf.reduce_mean(tf.square(rewards - values) * self.global_model.value_function_coeff)
-        # return value_loss + policy_loss
+        value_loss = tf.reduce_mean(tf.square(rewards - values))
+        self._last_batch_loss = total_loss = value_loss + policy_loss - 0.01 * entropy
+        
+        return total_loss
 
         # Version 2
 
@@ -97,45 +112,43 @@ class Coordinator:
         # policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits)
         # policy_loss *= tf.stop_gradient(advantages)
         # policy_loss -= 0.01 * entropy
-        # total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
+        # self._last_batch_loss = total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
         # return total_loss
 
         # Version 3
 
-        log_prob = tf.math.log( tf.reduce_sum(action_dist * actions_hot, axis=1, keepdims=True) + 1e-10)
-        loss_policy = -log_prob * tf.stop_gradient(advantages)									
-        loss_value  = 0.5 * tf.square(advantages)												
-        entropy = 0.01 * tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-10), axis=1, keepdims=True)	
+        # log_prob = tf.math.log( tf.reduce_sum(action_dist * actions_hot, axis=1, keepdims=True) + 1e-10)
+        # loss_policy = -log_prob * tf.stop_gradient(advantages)									
+        # loss_value  = 0.5 * tf.square(advantages)												
+        # entropy = 0.01 * tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-10), axis=1, keepdims=True)	
 
-        loss_total = tf.reduce_mean(loss_policy + loss_value + entropy)
-        self._last_batch_loss = loss_total
+        # loss_total = tf.reduce_mean(loss_policy + loss_value + entropy)
+        # self._last_batch_loss = loss_total
 
-        return loss_total
+        # return loss_total
       
     def train(self, train_data):
-        with tf.GradientTape() as tape:
+        # with tf.GradientTape() as tape:
             
-            for var in self.local_model.layers:
-                for w in var.trainable_weights:
-                    tape.watch(w)
-                for v in var.trainable_variables:
-                    tape.watch(v)
-            
-            self._train_data = train_data
+        # for var in self.local_model.layers:
+        #     for w in var.trainable_weights:
+        #         tape.watch(w)
+        #     for v in var.trainable_variables:
+        #         tape.watch(v)
 
-            # Apply Gradients
-            params = self.global_model.trainable_variables
+        # grads = tape.gradient(params, loss)
+        # grads, global_norm = tf.clip_by_global_norm(grads, self.global_model.max_grad_norm)
+        # optimizer.apply_gradients(zip(grads, params))
 
-            # grads = tape.gradient(params, loss)
+        
+        self._train_data = train_data
 
-            # grads, global_norm = tf.clip_by_global_norm(grads, self.global_model.max_grad_norm)
-            
-            # optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.global_model.learning_rate, epsilon=self.global_model.epsilon)
-            # optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, epsilon=1e-5)
-            optimizer = tf.keras.optimizers.RMSprop(learning_rate=5e-3)
-            optimizer.minimize(self.loss, var_list=params)
-
-            # optimizer.apply_gradients(zip(grads, params))
+        # Apply Gradients
+        params = self.global_model.trainable_variables
+        # , clipnorm = .5
+        # 7e-4
+        optimizer = tf.keras.optimizers.Adam(learning_rate=.001)
+        optimizer.minimize(self.loss, var_list=params)
 
         self.collect_stats("LOSS", self._last_batch_loss.numpy())
 
@@ -294,12 +307,12 @@ class Coordinator:
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
 
-                            data = (batch_states, batch_actions, batch_rewards, batch_advantages)
+                            # data = (batch_states, batch_actions, batch_rewards, batch_advantages)
 
-                            if len(data[0]) != 0:
-                                self.train(data) 
-                            else:
-                                break
+                            # if len(data[0]) != 0:
+                            #     self.train(data) 
+                            # else:
+                            #     break
                            
                         else:
                             
@@ -316,20 +329,19 @@ class Coordinator:
                             all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                             all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
 
-                            data = (batch_states, batch_actions, batch_rewards, batch_advantages)
+                            # data = (batch_states, batch_actions, batch_rewards, batch_advantages)
 
-                            if len(data[0]) != 0:
-                                self.train(data) 
-                            else:
-                                break
+                            # if len(data[0]) != 0:
+                            #     self.train(data) 
+                            # else:
+                            #     break
                         
                             
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
                     data = (all_states, all_actions, all_rewards, all_advantages)
 
                     if len(data[0]) != 0:
-                        continue
-                        #self.train(data) 
+                        self.train(data) 
                     else:
                         break
 

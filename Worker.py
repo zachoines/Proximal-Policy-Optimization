@@ -82,12 +82,12 @@ class Worker():
             
 
     # Boltzmann Softmax style action selection
-    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.01):
+    def action_select(self, dist, exploration="Epsilon_greedy", temperature=1.0, epsilon=.005):
         
 
         if exploration == "boltzmann":        
 
-            dist = tf.nn.softmax(dist).numpy()
+            dist = tf.nn.softmax(dist * temperature).numpy()
             a = np.random.choice(dist,p=dist)
             probs = dist == a
             probs = dist
@@ -108,13 +108,13 @@ class Worker():
         elif exploration == "Epsilon_greedy":
             
             # Scale epsilon down to near 0.0 by multiplying .9 ... .1
-            if random.random() < (epsilon * temperature):
+            if random.random() < (epsilon):
                 
                 return random.randint(0, self.NUM_ACTIONS-1)
 
             else:
 
-                dist = tf.nn.softmax(dist * temperature).numpy() 
+                dist = tf.nn.softmax(dist).numpy() 
                 a = np.random.choice(dist,p=dist)
                 probs = dist == a
                 a = np.argmax(probs)

@@ -57,8 +57,8 @@ env_4 = 'MsPacmanDeterministic-v4'
 env_5 = 'MsPacman-v0'
 
 
-# env_names = [env_4, env_5]
-env_names = [env_1, 'Breakout-v0', ]
+env_names = [env_5, env_5]
+# env_names = [env_1, env_2]
 
 # Configuration
 current_dir = os.getcwd()
@@ -70,10 +70,11 @@ record = True
 num_envs = len(env_names)
 batch_size = 8
 batches_per_epoch = sys.maxsize
-num_epocs = 512 * 4
+# batches_per_epoch = 1024
+num_epocs = 512 * 5
 gamma = .99
 learning_rate = 7e-4
-anneling_steps = num_epocs**2 
+anneling_steps = 512 ** 2
 
 # Make the super mario gym environments and apply wrappers
 envs = []
@@ -85,9 +86,8 @@ plot = AsynchronousPlot(collector, live=False)
 for env in env_names:
     env = gym.make(env) 
     # env = preprocess.FrameSkip(env, 4)
-    # env = JoypadSpace(env, SIMPLE_MOVEMENT)
     env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
-    env = preprocess.GrayScaleImage(env, height=96, width=96, grayscale=True)
+    env = preprocess.GrayScaleImage(env, height=64, width=64, grayscale=True)
     env = preprocess.FrameStack(env, 4)
     env = Stats(env, collector)
     envs.append(env)
@@ -111,7 +111,7 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 (_, hight, width, stack) = NUM_STATE
 Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
-step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
+step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
 
 
