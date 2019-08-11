@@ -15,7 +15,7 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, model, local_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
+    def __init__(self, model, local_model, old_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
         self.global_model = model
         self.local_model = local_model
         self.model_save_path = model_save_path
@@ -25,7 +25,6 @@ class Coordinator:
         self.batches_per_epoch = batches_per_epoch
         self.batch_size = batch_size
         self.gamma = gamma
-        self.total_loss = 0
         self.plot = plot   
         self.total_steps = 0
         self.anneling_steps = anneling_steps
@@ -35,11 +34,11 @@ class Coordinator:
         self._currentE = 1.0
         self._current_annealed_prob = 1.0
         self._train_data = None
+        self._total_loss = 0
 
         # PPO related variables
-        self._old_neg_log_prob = None
-        self._old_values = None
-        self._clip_range = .8
+        self._old_gradients_model = old_model
+        self._clip_range = .2
 
  
     # Annealing entropy to encourage convergence later: 1.0 to 0.01
@@ -101,59 +100,43 @@ class Coordinator:
         advantages = tf.Variable(advantages, name="Advantages", dtype=tf.float32, trainable=False)
 
         # PPO Version # 1
-        if (self._old_values == None):
-            self._old_values = values
+        old_logits, _, old_values = self._old_gradients_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
 
         # Entropy bonus
         entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
 
         # Value loss
-        clipped_values = self._old_values + tf.clip_by_value(values - self._old_values, - self._clip_range, self._clip_range)
+        clipped_values = old_values + tf.clip_by_value(values - old_values, - self._clip_range, self._clip_range)
         value_loss_unclipped = tf.square(values - rewards)
         value_loss_clipped = tf.square(clipped_values - rewards)
-        vf_loss = .5 * tf.reduce_mean(tf.maximum(value_loss_unclipped, value_loss_clipped))
-
+        value_loss = .5 * tf.reduce_mean(tf.maximum(value_loss_unclipped, value_loss_clipped))
 
         # Policy loss
-        neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
-        
-        if (self._old_neg_log_prob == None):
-            self._old_neg_log_prob = neg_log_prob
-
-        policy_params_ratio = tf.exp(self._old_neg_log_prob - neg_log_prob)
+        old_neg_log_prob = neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=old_logits) 
+        policy_params_ratio = tf.exp(old_neg_log_prob - neg_log_prob)
         policy_loss_1 = -advantages * policy_params_ratio
         policy_loss_2 = -advantages * tf.clip_by_value(policy_params_ratio, 1.0 - self._clip_range, 1.0 + self._clip_range)
         policy_loss = tf.reduce_mean(tf.maximum(policy_loss_1, policy_loss_2))
 
         # Final total loss
-        self.total_loss = total_loss = policy_loss - entropy * self.global_model.ent_coef + value_loss * self.global_model.value_function_coeff
+        self._total_loss = total_loss = policy_loss - entropy * self.global_model.entropy_coef + value_loss * self.global_model.value_function_coeff
+
+        # Save the new 'old' policy for the next iteration
+        self._old_gradients_model.set_weights(self.global_model.get_weights())
 
         return total_loss
 
     def train(self, train_data):
-        # with tf.GradientTape() as tape:
-            
-        # for var in self.local_model.layers:
-        #     for w in var.trainable_weights:
-        #         tape.watch(w)
-        #     for v in var.trainable_variables:
-        #         tape.watch(v)
-
-        # grads = tape.gradient(params, loss)
-        # grads, global_norm = tf.clip_by_global_norm(grads, self.global_model.max_grad_norm)
-        # optimizer.apply_gradients(zip(grads, params))
-
         
+        # Store training data for loss calculation
         self._train_data = train_data
 
         # Apply Gradients
         params = self.global_model.trainable_variables
-        
-        # custom learning rate:7e-4
-        optimizer = tf.keras.optimizers.Adam(learning_rate=.001)
-        optimizer.minimize(self.loss, var_list=params, clipnorm=.5)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=.001, clipnorm=.5)  # custom learning rate:7e-4
+        optimizer.minimize(self.loss, var_list=params)
 
-        self.collect_stats("LOSS", self._last_batch_loss.numpy())
+        self.collect_stats("LOSS", self._total_loss.numpy())
 
     # request access to collector and record stats
     def collect_stats(self, key, value):

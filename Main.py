@@ -17,11 +17,8 @@ from tensorflow.python.client import device_lib
 print("GPU Available: ", tf.test.is_gpu_available())
 
 
-# Importing the packages for OpenAI and MARIO
+# Importing the packages for OpenAI
 import gym
-# from nes_py.wrappers import JoypadSpace
-# import gym_super_mario_bros
-# from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
 # Locally defined classes
 from Wrappers import preprocess
@@ -114,6 +111,10 @@ Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), 
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
 
+# Model used fpr holding old network params in PPO
+Old_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
+Old_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
+
 
 # Load model if exists
 if not os.path.exists(model_save_path):
@@ -124,6 +125,7 @@ else:
             
             Global_Model.load_model_weights()
             step_model.load_model_weights()
+            Old_Model.load_model_weights()
             for env in envs:
                 workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
             
@@ -139,7 +141,7 @@ else:
         print("ERROR: There was an issue loading the model!")
         raise
 
-coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
+coordinator = Coordinator(Global_Model, step_model, Old_Model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
 
 # Train and save
 if coordinator.run():
