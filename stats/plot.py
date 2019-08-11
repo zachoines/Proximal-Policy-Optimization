@@ -10,15 +10,15 @@ from heapq import *
 
 # type what you want to display here
 line_types = ["linear", "log"]
-line_type = line_types[1]
-dimensions = ["CMA", "LENGTH", "LOSS"]
-dimension = dimensions[2]
+line_type = line_types[0]
+dimensions = ["CMA", "LENGTH", "LOSS", 'd']
+dimension = dimensions[0]
 
 # load in data and sort
 heap = []
 x, runtime, y = np.loadtxt(dimension + ".txt", delimiter=',', unpack=True)
 for i in range(len(runtime)):
-    data = abs(y[i])
+    data = y[i]
     time = runtime[i]
     item = (time, data)
     heappush(heap, item)
@@ -29,8 +29,6 @@ counter = 0
 
 while heap:
     (x_i, y_i) = heappop(heap)
-    # if y_i == 0.0:
-    #     continue
     sorted_x.append(counter)
     sorted_y.append(y_i)
     counter += 1
