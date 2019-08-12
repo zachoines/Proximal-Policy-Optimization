@@ -94,7 +94,7 @@ class AC_Model(tf.keras.Model):
         # self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
         # self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
         # self.spatial_dropout3 = tf.keras.layers.SpatialDropout2D(rate=.5, seed=1, trainable=is_training)
-        self.linear_dropout = tf.keras.layers.Dropout(rate=.5, trainable=is_training)
+        # self.linear_dropout = tf.keras.layers.Dropout(rate=.5, trainable=is_training)
 
     def call(self, input_image, keep_p=1.0):
 
@@ -119,7 +119,7 @@ class AC_Model(tf.keras.Model):
         # Linear layers
         flattened_out = self.flattened(conv3_out)
         hidden_out = self.hiddenLayer(flattened_out)
-        hidden_out = self.linear_dropout(hidden_out)
+        # hidden_out = self.linear_dropout(hidden_out)
 
         # Actor and the Critic outputs
         value = self._value(hidden_out)
@@ -139,9 +139,13 @@ class AC_Model(tf.keras.Model):
         return value.numpy()[0]
 
     def save_model_weights(self): 
-        current_dir = os.getcwd()   
-        model_save_path = current_dir + '\Model\checkpoint.tf'
-        self.save_weights(model_save_path, save_format='tf')
+        try:
+            current_dir = os.getcwd()   
+            model_save_path = current_dir + '\Model\checkpoint.tf'
+            self.save_weights(model_save_path, save_format='tf')
+        except:
+            print("Issue saving Model weights")
+        
 
     def load_model_weights(self):
         current_dir = os.getcwd()

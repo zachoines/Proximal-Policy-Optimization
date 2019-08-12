@@ -54,7 +54,7 @@ class Worker():
             if not self._done:
                 self.total_steps += 1
                 [logits], [action_dist] , value = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
-                action = self.action_select(logits, exploration="Epsilon_greedy")
+                action = self.action_select(logits, exploration="boltzmann")
                 [s_t], reward, d, _ = self.env.step(action)
                 self._done = d
 
@@ -86,18 +86,12 @@ class Worker():
         
 
         if exploration == "boltzmann":        
-
-            dist = tf.nn.softmax(dist * temperature).numpy()
-            a = np.random.choice(dist,p=dist)
-            probs = dist == a
-            probs = dist
-            a = np.argmax(probs)
-
-            # exp_preds = np.exp((dist + 1e-20) / temperature ).astype("float64")
-            # preds = exp_preds / np.sum(exp_preds)
             
-            # [probas] = np.random.multinomial(1, dist, 1)
-            # a = np.argmax(probas)
+            exp_preds = np.exp((dist + 1e-16) * temperature ).astype("float64")
+            preds = exp_preds / np.sum(exp_preds)
+            
+            [probas] = np.random.multinomial(1, dist, 1)
+            a = np.argmax(probas)
             return a
         
         # Use with large dropout annealed over time

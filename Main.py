@@ -54,8 +54,8 @@ env_4 = 'MsPacmanDeterministic-v4'
 env_5 = 'MsPacman-v0'
 
 
-env_names = [env_5, env_5]
-# env_names = [env_1, env_2]
+# env_names = [env_5, env_5]
+env_names = [env_1, env_2]
 
 # Configuration
 current_dir = os.getcwd()
@@ -65,7 +65,7 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 8
+batch_size = 32
 batches_per_epoch = sys.maxsize
 # batches_per_epoch = 1024
 num_epocs = 512 * 5
@@ -84,7 +84,7 @@ for env in env_names:
     env = gym.make(env) 
     # env = preprocess.FrameSkip(env, 4)
     env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
-    env = preprocess.GrayScaleImage(env, height=64, width=64, grayscale=True)
+    env = preprocess.GrayScaleImage(env, height=84, width=84, grayscale=True)
     env = preprocess.FrameStack(env, 4)
     env = Stats(env, collector)
     envs.append(env)
@@ -111,7 +111,7 @@ Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), 
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
 
-# Model used fpr holding old network params in PPO
+# Model used for holding old network params in PPO
 Old_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 Old_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
 
@@ -144,7 +144,8 @@ else:
 coordinator = Coordinator(Global_Model, step_model, Old_Model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
 
 # Train and save
-if coordinator.run():
+results = coordinator.run()
+if results:
     try:
         Global_Model.save_model_weights()
         print("Model saved.")
