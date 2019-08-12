@@ -54,8 +54,8 @@ env_4 = 'MsPacmanDeterministic-v4'
 env_5 = 'MsPacman-v0'
 
 
-# env_names = [env_5, env_5]
-env_names = [env_1, env_2]
+env_names = [env_5, env_4, env_5]
+# env_names = [env_1, env_2]
 
 # Configuration
 current_dir = os.getcwd()
