@@ -82,12 +82,12 @@ class Coordinator:
     def loss(self):
         
         batch_states, batch_actions, batch_rewards, batch_advantages = self._train_data
-        actions = tf.Variable(batch_actions, name="Actions", trainable=False)
-        rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float32)
+        actions = tf.Variable(batch_actions, name="Actions")
+        rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float64)
         actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float32)
         logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
         
-        advantages = rewards - values
+        advantages = batch_rewards - values.numpy()
 
         # Version 1
 
@@ -96,7 +96,7 @@ class Coordinator:
 
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
         neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
-        policy_loss = tf.reduce_mean(neg_log_prob * advantages.numpy() * 0.5)
+        policy_loss = tf.reduce_mean(neg_log_prob * advantages * 0.5)
 
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
         value_loss = tf.reduce_mean(tf.square(rewards - values))
@@ -338,7 +338,7 @@ class Coordinator:
                         
                             
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
-                    data = (all_states, all_actions, all_rewards, all_advantages)
+                    data = (all_states, all_actions, all_rewards.tolist(), all_advantages)
 
                     if len(data[0]) != 0:
                         self.train(data) 

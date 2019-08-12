@@ -50,15 +50,10 @@ if gpus:
 
 
 # Environments to run
-env_1 = 'BreakoutDeterministic-v4'
-env_2 = 'Breakout-v4'
-env_3 = 'BreakoutDeterministic-v0'
-env_4 = 'MsPacmanDeterministic-v4'
-env_5 = 'MsPacman-v0'
+env_1 = 'CartPole-v0'
 
 
-env_names = [env_5, env_5]
-# env_names = [env_1, env_2]
+env_names = [env_1, env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -86,16 +81,15 @@ plot = AsynchronousPlot(collector, live=False)
 for env in env_names:
     env = gym.make(env) 
     # env = preprocess.FrameSkip(env, 4)
-    env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
-    env = preprocess.GrayScaleImage(env, height=64, width=64, grayscale=True)
-    env = preprocess.FrameStack(env, 4)
+    # env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
+    # env = preprocess.GrayScaleImage(env, height=64, width=64, grayscale=True)
+    # env = preprocess.FrameStack(env, 4)
     env = Stats(env, collector)
     envs.append(env)
 
-(HEIGHT, WIDTH, CHANNELS) = envs[0].observation_space.shape
+NUM_STATE = envs[0].observation_space.shape
 NUM_ACTIONS = envs[0].env.action_space.n
 ACTION_SPACE = envs[0].env.action_space
-NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)  
 
 if not os.path.exists(video_save_path):
     os.makedirs(video_save_path)
@@ -109,10 +103,9 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
 # Init Global and Local networks. Generate Weights for them as well.
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-(_, hight, width, stack) = NUM_STATE
-Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
+Global_Model(tf.convert_to_tensor(np.random.random((1, 4))))
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
+step_model(tf.convert_to_tensor(np.random.random((1, 4))))
 
 
 # Load model if exists

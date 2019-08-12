@@ -22,48 +22,9 @@ class AC_Model(tf.keras.Model):
         self.epsilon = 1e-5
         
         # Model variables
-        (_, hight, width, stack) = input_s
-        self.input_def = tf.keras.layers.Input(shape=(hight, width*stack, 1), name="input_layer", dtype=tf.float32)
+        # self.input_def = tf.keras.layers.Input(shape=input_s, name="input_layer", dtype=tf.float32)
 
-        # Define Convolution 1
-        self.conv1 = tf.keras.layers.Conv2D(
-            filters=32,
-            kernel_size=[8, 8],
-            strides=(4, 4),
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0),
-            padding="valid",
-            activation="relu", 
-            name="conv1",
-            trainable=is_training )
-        
-        # self.maxPool1 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="maxPool1")
-
-        # define Convolution 2
-        self.conv2 = tf.keras.layers.Conv2D(
-            filters=64,
-            kernel_size=[4, 4],
-            strides=(2, 2),
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0),
-            padding="valid",
-            activation="relu",
-            name="conv2", 
-            trainable=is_training)
-
-        # self.maxPool2 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="maxPool2", trainable=is_training )
-        
-        # define Convolution 3
-        self.conv3 = tf.keras.layers.Conv2D(
-            filters=64,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0, seed=1),
-            padding="valid",
-            activation="relu",
-            name="conv3",
-            trainable=is_training )
-
-        # self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name ="maxPool3", trainable=is_training )
-        self.flattened = tf.keras.layers.Flatten(name="flattening_layer", trainable=is_training )
+    
         self.hiddenLayer = tf.keras.layers.Dense(
             512,
             activation="relu",
@@ -96,29 +57,10 @@ class AC_Model(tf.keras.Model):
         # self.spatial_dropout3 = tf.keras.layers.SpatialDropout2D(rate=.5, seed=1, trainable=is_training)
         self.linear_dropout = tf.keras.layers.Dropout(rate=.5, trainable=is_training)
 
-    def call(self, input_image, keep_p=1.0):
+    def call(self, input_s, keep_p=1.0):
 
         # Feature maps one
-        conv1_out = self.conv1(input_image)
-        # conv1_out = self.batch_reg1(conv1_out)
-        # maxPool1_out = self.maxPool1(conv1_out)
-        # maxPool1_out = self.spatial_dropout1(maxPool1_out)
-
-        # Feature maps two
-        conv2_out = self.conv2(conv1_out)
-        # conv2_out = self.batch_reg2(conv2_out)
-        # maxPool2_out = self.maxPool2(conv2_out)
-        # maxPool2_out = self.spatial_dropout2(conv2_out)
-
-        # Feature maps three
-        conv3_out = self.conv3(conv2_out)
-        # conv3_out = self.batch_reg3(conv3_out)
-        # maxPool3_out = self.maxPool3(conv3_out)
-        # maxPool3_out = self.spatial_dropout3(maxPool3_out)
-        
-        # Linear layers
-        flattened_out = self.flattened(conv3_out)
-        hidden_out = self.hiddenLayer(flattened_out)
+        hidden_out = self.hiddenLayer(input_s)
         hidden_out = self.linear_dropout(hidden_out)
 
         # Actor and the Critic outputs
