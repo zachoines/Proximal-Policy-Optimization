@@ -27,12 +27,12 @@ class Stats(RewardWrapper):
 
         self.numSteps = 0
         self.CMA = 0
-        return self.env.reset(**kwargs)
+        return self.env.reset(**kwargs) / 256.0
 
     def step(self, action):
         self.numSteps += 1
         observation, reward, done, info = self.env.step(action)
-        return observation, self.reward(reward), done, info
+        return observation / 256.0, self.reward(reward), done, info
 
     def reward(self, reward):
         # Cumulative moving average

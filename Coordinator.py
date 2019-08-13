@@ -273,7 +273,7 @@ class Coordinator:
                         boot_strap = 0     
 
                         if (not done):
-                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), 1.0)
+                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation / 256, axis=0), 1.0)
                             # bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             # discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
                         discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)

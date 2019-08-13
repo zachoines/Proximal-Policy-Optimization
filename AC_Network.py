@@ -5,6 +5,9 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.backend as k
 
+# Recreating this experiment
+# https://cdn-sv1.deepsense.ai/wp-content/uploads/2016/09/1605.01335v1-4.pdf
+
 class AC_Model(tf.keras.Model):
     def __init__(self, input_s, num_actions, is_training=True):
         super(AC_Model, self).__init__()
@@ -38,6 +41,25 @@ class AC_Model(tf.keras.Model):
             # kernel_initializer=keras.initializers.Orthogonal(),
             name="hidden_layer2", 
             trainable=is_training )
+        
+        self.hiddenLayer3 = tf.keras.layers.Dense(
+           128,
+            activation="relu",
+            # kernel_initializer=keras.initializers.Orthogonal(),
+            name="hidden_layer3", 
+            trainable=is_training )
+        
+        self.hiddenLayer4 = tf.keras.layers.Dense(
+            128,
+            activation="relu",
+            # kernel_initializer=keras.initializers.Orthogonal(),
+            name="hidden_layer4", 
+            trainable=is_training )
+
+        self.dropout1 = tf.keras.layers.Dropout(.5)
+        self.dropout2 = tf.keras.layers.Dropout(.5)
+        self.dropout3 = tf.keras.layers.Dropout(.5)
+        self.dropout4 = tf.keras.layers.Dropout(.5)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
@@ -55,13 +77,19 @@ class AC_Model(tf.keras.Model):
 
     def call(self, input_s, keep_p=1.0):
 
-        # Feature maps one
+        # NN layers
         hidden1_out = self.hiddenLayer1(input_s)
-        hidden2_out = self.hiddenLayer2(hidden1_out)
+        dropout1_out = self.dropout1(hidden1_out)
+        hidden2_out = self.hiddenLayer2(dropout1_out)
+        dropout2_out = self.dropout2(hidden2_out)
+        hidden3_out = self.hiddenLayer3(hidden2_out)
+        dropout3_out = self.dropout3(hidden3_out)
+        hidden4_out = self.hiddenLayer4(hidden3_out)
+        dropout4_out = self.dropout4(hidden4_out)
 
         # Actor and the Critic outputs
-        value = self._value(hidden2_out)
-        logits = self._policy(hidden2_out)
+        value = self._value(dropout4_out)
+        logits = self._policy(dropout4_out)
         action_dist = tf.nn.softmax(logits)
 
         return logits, action_dist, tf.squeeze(value)

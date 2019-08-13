@@ -58,7 +58,7 @@ class Worker():
                 s_t, reward, d, stuff = self.env.step(action)
                 self._done = d
 
-                batch.append((self.s, s_t , reward / 10, value, action, d, logits.tolist()))
+                batch.append((self.s , s_t , reward, value, action, d, logits.tolist()))
                 self.s = s_t
 
                 # render the env

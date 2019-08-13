@@ -47,7 +47,7 @@ def run(num_steps, env, network, render):
         done = False
         # Make a prediction and take a step if the epoc is not done
         if not done:
-            [logits], _, _ = network.step(np.expand_dims(s, axis=0), 1.0)
+            [logits], d, _ = network.step(np.expand_dims(s, axis=0), 1.0)
             action = action_select(logits)
             s_t, reward, d, stuff = env.step(action)
             done = d
@@ -56,10 +56,14 @@ def run(num_steps, env, network, render):
             # render the env
             if (render):
                 env.render()
-
+        
         else:
-            print("Test run has finised.")
-            return
+            s = env.reset()
+            done = False
+            if (render):
+                env.render()
+    print("Test run has finised.")
+    return
 
 
 # Action selection
