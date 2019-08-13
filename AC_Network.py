@@ -22,20 +22,27 @@ class AC_Model(tf.keras.Model):
         self.epsilon = 1e-5
         
         # Model variables
-        # self.input_def = tf.keras.layers.Input(shape=input_s, name="input_layer", dtype=tf.float32)
+        self.input_def = tf.keras.layers.Input(shape=input_s, name="input_layer", dtype=tf.float32)
 
     
-        self.hiddenLayer = tf.keras.layers.Dense(
+        self.hiddenLayer1 = tf.keras.layers.Dense(
             512,
             activation="relu",
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0),
-            name="hidden_layer", 
+            kernel_initializer=keras.initializers.Orthogonal(),
+            name="hidden_layer1", 
+            trainable=is_training )
+        
+        self.hiddenLayer2 = tf.keras.layers.Dense(
+            256,
+            activation="relu",
+            kernel_initializer=keras.initializers.Orthogonal(),
+            name="hidden_layer2", 
             trainable=is_training )
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0),
+            kernel_initializer=keras.initializers.Orthogonal(),
             activation='linear',
             name="value_layer",
             trainable=is_training )
@@ -43,29 +50,18 @@ class AC_Model(tf.keras.Model):
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            kernel_initializer=keras.initializers.Orthogonal(gain= 0.01),
+            kernel_initializer=keras.initializers.Orthogonal(),
             name="policy_layer", trainable=is_training )
-
-        # Batch regularization
-        # self.batch_reg1 = tf.keras.layers.BatchNormalization()
-        # self.batch_reg2 = tf.keras.layers.BatchNormalization()
-        # self.batch_reg3 = tf.keras.layers.BatchNormalization()
-
-        # Dropout layers to prevent overfitting
-        # self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
-        # self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
-        # self.spatial_dropout3 = tf.keras.layers.SpatialDropout2D(rate=.5, seed=1, trainable=is_training)
-        self.linear_dropout = tf.keras.layers.Dropout(rate=.5, trainable=is_training)
 
     def call(self, input_s, keep_p=1.0):
 
         # Feature maps one
-        hidden_out = self.hiddenLayer(input_s)
-        hidden_out = self.linear_dropout(hidden_out)
+        hidden1_out = self.hiddenLayer1(input_s)
+        hidden2_out = self.hiddenLayer2(hidden1_out)
 
         # Actor and the Critic outputs
-        value = self._value(hidden_out)
-        logits = self._policy(hidden_out)
+        value = self._value(hidden2_out)
+        logits = self._policy(hidden2_out)
         action_dist = tf.nn.softmax(logits)
 
         return logits, action_dist, tf.squeeze(value)

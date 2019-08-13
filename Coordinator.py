@@ -81,28 +81,25 @@ class Coordinator:
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self):
         
-        batch_states, batch_actions, batch_rewards, batch_advantages = self._train_data
-        actions = tf.Variable(batch_actions, name="Actions")
-        rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float64)
-        actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float32)
+        batch_states, actions, rewards, batch_advantages, _ = self._train_data
+        actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float64)
         logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
-        
-        advantages = batch_rewards - values.numpy()
+        advantages = tf.convert_to_tensor(np.array(rewards)) - values 
 
         # Version 1
 
         # Entropy: (1 / n) * - ∑ P_i * Log (P_i)
-        entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
+        # entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
 
-        # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
-        neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
-        policy_loss = tf.reduce_mean(neg_log_prob * advantages * 0.5)
+        # # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
+        # neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
+        # policy_loss = tf.reduce_mean(neg_log_prob * tf.stop_gradient(advantages) * 0.5)
 
-        # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        value_loss = tf.reduce_mean(tf.square(rewards - values))
-        self._last_batch_loss = total_loss = value_loss + policy_loss - 0.01 * entropy
+        # # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
+        # value_loss = tf.reduce_mean(tf.square(rewards - values))
+        # self._last_batch_loss = total_loss = value_loss + policy_loss - 0.01 * entropy
         
-        return total_loss
+        # return total_loss
 
         # Version 2
 
@@ -117,37 +114,23 @@ class Coordinator:
 
         # Version 3
 
-        # log_prob = tf.math.log( tf.reduce_sum(action_dist * actions_hot, axis=1, keepdims=True) + 1e-10)
-        # loss_policy = -log_prob * tf.stop_gradient(advantages)									
-        # loss_value  = 0.5 * tf.square(advantages)												
-        # entropy = 0.01 * tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-10), axis=1, keepdims=True)	
+        log_prob = tf.math.log( tf.reduce_sum(action_dist * actions_hot, axis=1, keepdims=True) + 1e-10)
+        loss_policy = -log_prob * tf.stop_gradient(advantages)									
+        loss_value  = 0.5 * tf.square(advantages)												
+        entropy = 0.01 * tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-10), axis=1, keepdims=True)	
 
-        # loss_total = tf.reduce_mean(loss_policy + loss_value + entropy)
-        # self._last_batch_loss = loss_total
+        loss_total = tf.reduce_mean(loss_policy + loss_value + entropy)
+        self._last_batch_loss = loss_total
 
-        # return loss_total
+        return loss_total
       
     def train(self, train_data):
-        # with tf.GradientTape() as tape:
-            
-        # for var in self.local_model.layers:
-        #     for w in var.trainable_weights:
-        #         tape.watch(w)
-        #     for v in var.trainable_variables:
-        #         tape.watch(v)
-
-        # grads = tape.gradient(params, loss)
-        # grads, global_norm = tf.clip_by_global_norm(grads, self.global_model.max_grad_norm)
-        # optimizer.apply_gradients(zip(grads, params))
-
-        
+   
         self._train_data = train_data
 
         # Apply Gradients
         params = self.global_model.trainable_variables
-        # , clipnorm = .5
-        # 7e-4
-        optimizer = tf.keras.optimizers.Adam(learning_rate=.001)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, clipnorm = .5)
         optimizer.minimize(self.loss, var_list=params)
 
         self.collect_stats("LOSS", self._last_batch_loss.numpy())
@@ -272,7 +255,6 @@ class Coordinator:
                             batch_rewards.append(reward)
                             batch_observations.append(observation)
                             batch_states.append(state)
-                            
                             batch_values.append(value)
 
                         
@@ -286,59 +268,34 @@ class Coordinator:
                         # δ_t == R + γ * V(S_t') - V(S_t): 
                         
                         # Or simply... 
-                        # δ_t == G_t - V:      
+                        # δ_t == G_t - V: 
+                        # 
+                        boot_strap = 0     
 
                         if (not done):
                             _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), 1.0)
                             # bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
                             # discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
-                            discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)
-                            batch_rewards = discounted_bootstrapped_rewards
-                            batch_advantages = list(set(batch_rewards) - set(batch_values))
+                        discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)
+                        batch_rewards = discounted_bootstrapped_rewards
+                        batch_advantages = np.array(batch_rewards) -  np.array(batch_values)
 
                             # Same as above...
                             # bootstrapped_values = np.asarray(batch_values + [boot_strap])
                             # advantages = batch_rewards + self.gamma * bootstrapped_values[1:] - bootstrapped_values[:-1]
                             # advantages = self.discount(advantages, self.gamma)
 
-                            all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-                            all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
-                            all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
-                            all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
-                            all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+                        all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
+                        all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
+                        all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
+                        all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
+                        all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
 
-                            # data = (batch_states, batch_actions, batch_rewards, batch_advantages)
-
-                            # if len(data[0]) != 0:
-                            #     self.train(data) 
-                            # else:
-                            #     break
                            
-                        else:
-                            
-                            boot_strap = 0
-                            # bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
-                            # discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
-                            discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)
-                            batch_rewards = discounted_bootstrapped_rewards
-                            batch_advantages = list(set(batch_rewards) - set(batch_values))
-
-                            all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-                            all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
-                            all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
-                            all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
-                            all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
-
-                            # data = (batch_states, batch_actions, batch_rewards, batch_advantages)
-
-                            # if len(data[0]) != 0:
-                            #     self.train(data) 
-                            # else:
-                            #     break
                         
                             
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
-                    data = (all_states, all_actions, all_rewards.tolist(), all_advantages)
+                    data = (all_states, all_actions, all_rewards.tolist(), all_advantages, all_values)
 
                     if len(data[0]) != 0:
                         self.train(data) 

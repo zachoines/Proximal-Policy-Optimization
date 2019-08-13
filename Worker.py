@@ -55,10 +55,10 @@ class Worker():
                 self.total_steps += 1
                 [logits], [action_dist] , value = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
                 action = self.action_select(logits, exploration="Epsilon_greedy")
-                s_t, reward, d, _ = self.env.step(action)
+                s_t, reward, d, stuff = self.env.step(action)
                 self._done = d
 
-                batch.append((self.s, s_t , reward, value, action, d, logits.tolist()))
+                batch.append((self.s, s_t , reward / 10, value, action, d, logits.tolist()))
                 self.s = s_t
 
                 # render the env

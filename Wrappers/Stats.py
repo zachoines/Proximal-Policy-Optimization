@@ -24,7 +24,7 @@ class Stats(RewardWrapper):
     def reset(self, **kwargs):
         if self.numSteps > 0:
             self.collector.collect('CMA', self.CMA)
-            self.collector.collect('LENGTH', self.numSteps)
+
         self.numSteps = 0
         self.CMA = 0
         return self.env.reset(**kwargs)
@@ -153,7 +153,7 @@ class AsynchronousPlot(threading.Thread):
                     if data == None or len(data) == 0:
                         continue
 
-                    (x, y) = data
+                    (x, (t, y)) = data
 
                     for i in range(len(self._lines)):
                         line = self._lines[i]
@@ -186,6 +186,7 @@ class AsynchronousPlot(threading.Thread):
                 return self._lines 
 
         else: 
+            self._busy.clear()
             return self._lines
         
 

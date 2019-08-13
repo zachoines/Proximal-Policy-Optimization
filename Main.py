@@ -19,9 +19,7 @@ print("GPU Available: ", tf.test.is_gpu_available())
 
 # Importing the packages for OpenAI and MARIO
 import gym
-# from nes_py.wrappers import JoypadSpace
-# import gym_super_mario_bros
-# from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
+
 
 # Locally defined classes
 from Wrappers import preprocess
@@ -50,10 +48,10 @@ if gpus:
 
 
 # Environments to run
-env_1 = 'CartPole-v0'
+env_1 = 'MsPacman-ram-v0'
 
 
-env_names = [env_1, env_1]
+env_names = [env_1, env_1, env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -63,9 +61,8 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 8
+batch_size = 16
 batches_per_epoch = sys.maxsize
-# batches_per_epoch = 1024
 num_epocs = 512 * 5
 gamma = .99
 learning_rate = 7e-4
@@ -74,16 +71,16 @@ anneling_steps = 512 ** 2
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions(["CMA", "LOSS", "LENGTH"])
+collector.set_dimensions(["CMA", "LOSS"])
 plot = AsynchronousPlot(collector, live=False)
 
 # Apply env wrappers
+counter = 0
 for env in env_names:
-    env = gym.make(env) 
-    # env = preprocess.FrameSkip(env, 4)
-    # env = Monitor(env, env.observation_space.shape, savePath=video_save_path, record=record)
-    # env = preprocess.GrayScaleImage(env, height=64, width=64, grayscale=True)
-    # env = preprocess.FrameStack(env, 4)
+    counter += 1
+    env = gym.make(env)
+    gym.wrappers.Monitor(env, video_save_path + "\env_" + str(counter),
+    write_upon_reset=True) 
     env = Stats(env, collector)
     envs.append(env)
 
@@ -103,9 +100,9 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
 # Init Global and Local networks. Generate Weights for them as well.
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-Global_Model(tf.convert_to_tensor(np.random.random((1, 4))))
+Global_Model(tf.convert_to_tensor(np.random.random((1, 128))))
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-step_model(tf.convert_to_tensor(np.random.random((1, 4))))
+step_model(tf.convert_to_tensor(np.random.random((1, 128))))
 
 
 # Load model if exists
