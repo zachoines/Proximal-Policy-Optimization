@@ -105,9 +105,15 @@ class AC_Model(tf.keras.Model):
         return value.numpy()[0]
 
     def save_model_weights(self): 
-        current_dir = os.getcwd()   
-        model_save_path = current_dir + '\Model\checkpoint.tf'
-        self.save_weights(model_save_path, save_format='tf')
+        try:
+            current_dir = os.getcwd()   
+            model_save_path = current_dir + '\Model\checkpoint.tf'
+            self.save_weights(model_save_path, save_format='tf')
+        except:
+            print("ERROR: There was an issue saving the model weights.")
+            raise
+
+        
 
     def load_model_weights(self):
         current_dir = os.getcwd()

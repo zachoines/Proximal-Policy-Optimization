@@ -43,8 +43,9 @@ Test_Model(tf.convert_to_tensor(np.random.random((1, 128))))
 # Generate an batch worth of observations. Return nothing.
 def run(num_steps, env, network, render):
     s = env.reset()
+    done = False
     for step in range(num_steps):
-        done = False
+        
         # Make a prediction and take a step if the epoc is not done
         if not done:
             [logits], d, _ = network.step(np.expand_dims(s, axis=0), 1.0)
@@ -54,13 +55,13 @@ def run(num_steps, env, network, render):
             s = s_t
 
             # render the env
-            if (render):
+            if (render and not done):
                 env.render()
         
         else:
-            s = env.reset()
             done = False
             if (render):
+                s = env.reset()
                 env.render()
     print("Test run has finised.")
     return
