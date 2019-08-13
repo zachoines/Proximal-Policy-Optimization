@@ -31,29 +31,41 @@ class AC_Model(tf.keras.Model):
         self.hiddenLayer1 = tf.keras.layers.Dense(
            128,
             activation="relu",
-            # kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_regularizer=keras.regularizers.l2(l=0.1),
+            bias_regularizer=keras.regularizers.l2(l=0.1),
             name="hidden_layer1", 
+            use_bias=False,
             trainable=is_training )
         
         self.hiddenLayer2 = tf.keras.layers.Dense(
             128,
             activation="relu",
-            # kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_regularizer=keras.regularizers.l2(l=0.1),
+            bias_regularizer=keras.regularizers.l2(l=0.1),
             name="hidden_layer2", 
+            use_bias=False,
             trainable=is_training )
         
         self.hiddenLayer3 = tf.keras.layers.Dense(
            128,
             activation="relu",
-            # kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_regularizer=keras.regularizers.l2(l=0.1),
+            bias_regularizer=keras.regularizers.l2(l=0.1),
             name="hidden_layer3", 
+            use_bias=False,
             trainable=is_training )
         
         self.hiddenLayer4 = tf.keras.layers.Dense(
             128,
             activation="relu",
-            # kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_regularizer=keras.regularizers.l2(l=0.1),
+            bias_regularizer=keras.regularizers.l2(l=0.1),
             name="hidden_layer4", 
+            use_bias=False,
             trainable=is_training )
 
         self.dropout1 = tf.keras.layers.Dropout(.5)
@@ -61,30 +73,44 @@ class AC_Model(tf.keras.Model):
         self.dropout3 = tf.keras.layers.Dropout(.5)
         self.dropout4 = tf.keras.layers.Dropout(.5)
 
+        self.BN1 = tf.keras.layers.BatchNormalization()
+        self.BN2 = tf.keras.layers.BatchNormalization()
+        self.BN3 = tf.keras.layers.BatchNormalization()
+        self.BN4 = tf.keras.layers.BatchNormalization()
+
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
-            # kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_initializer=keras.initializers.Orthogonal(),
             activation='linear',
             name="value_layer",
+            use_bias=False,
             trainable=is_training )
    
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            # kernel_initializer=keras.initializers.Orthogonal(),
+            kernel_initializer=keras.initializers.Orthogonal(),
+            use_bias=False,
             name="policy_layer", trainable=is_training )
 
     def call(self, input_s, keep_p=1.0):
 
         # NN layers
         hidden1_out = self.hiddenLayer1(input_s)
+        hidden1_out = self.BN1(hidden1_out)
         dropout1_out = self.dropout1(hidden1_out)
+        
         hidden2_out = self.hiddenLayer2(dropout1_out)
+        hidden2_out = self.BN2(hidden2_out)
         dropout2_out = self.dropout2(hidden2_out)
+        
         hidden3_out = self.hiddenLayer3(hidden2_out)
+        hidden3_out = self.BN3(hidden3_out)
         dropout3_out = self.dropout3(hidden3_out)
+        
         hidden4_out = self.hiddenLayer4(hidden3_out)
+        hidden4_out = self.BN4(hidden4_out)
         dropout4_out = self.dropout4(hidden4_out)
 
         # Actor and the Critic outputs

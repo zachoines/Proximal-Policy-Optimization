@@ -79,8 +79,7 @@ counter = 0
 for env in env_names:
     counter += 1
     env = gym.make(env)
-    gym.wrappers.Monitor(env, video_save_path + "\env_" + str(counter),
-    write_upon_reset=True) 
+    # gym.wrappers.Monitor(env, video_save_path + "\env_" + str(counter), write_upon_reset=True) 
     env = Stats(env, collector)
     envs.append(env)
 
