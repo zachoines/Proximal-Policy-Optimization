@@ -26,23 +26,23 @@ class AC_Model(tf.keras.Model):
 
     
         self.hiddenLayer1 = tf.keras.layers.Dense(
-            512,
+           128,
             activation="relu",
-            kernel_initializer=keras.initializers.Orthogonal(),
+            # kernel_initializer=keras.initializers.Orthogonal(),
             name="hidden_layer1", 
             trainable=is_training )
         
         self.hiddenLayer2 = tf.keras.layers.Dense(
-            256,
+            128,
             activation="relu",
-            kernel_initializer=keras.initializers.Orthogonal(),
+            # kernel_initializer=keras.initializers.Orthogonal(),
             name="hidden_layer2", 
             trainable=is_training )
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
-            kernel_initializer=keras.initializers.Orthogonal(),
+            # kernel_initializer=keras.initializers.Orthogonal(),
             activation='linear',
             name="value_layer",
             trainable=is_training )
@@ -50,7 +50,7 @@ class AC_Model(tf.keras.Model):
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            kernel_initializer=keras.initializers.Orthogonal(),
+            # kernel_initializer=keras.initializers.Orthogonal(),
             name="policy_layer", trainable=is_training )
 
     def call(self, input_s, keep_p=1.0):

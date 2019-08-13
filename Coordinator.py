@@ -103,26 +103,26 @@ class Coordinator:
 
         # Version 2
 
-        # value_loss = advantages ** 2
-        # policy = action_dist
-        # entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
-        # policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits)
-        # policy_loss *= tf.stop_gradient(advantages)
-        # policy_loss -= 0.01 * entropy
-        # self._last_batch_loss = total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
-        # return total_loss
+        value_loss = advantages ** 2
+        policy = action_dist
+        entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
+        policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits)
+        policy_loss *= tf.stop_gradient(advantages)
+        policy_loss -= 0.01 * entropy
+        self._last_batch_loss = total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
+        return total_loss
 
         # Version 3
 
-        log_prob = tf.math.log( tf.reduce_sum(action_dist * actions_hot, axis=1, keepdims=True) + 1e-10)
-        loss_policy = -log_prob * tf.stop_gradient(advantages)									
-        loss_value  = 0.5 * tf.square(advantages)												
-        entropy = 0.01 * tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-10), axis=1, keepdims=True)	
+        # log_prob = tf.math.log( tf.reduce_sum(action_dist * actions_hot, axis=1, keepdims=True) + 1e-10)
+        # loss_policy = -log_prob * tf.stop_gradient(advantages)									
+        # loss_value  = 0.5 * tf.square(advantages)												
+        # entropy = 0.01 * tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-10), axis=1, keepdims=True)	
 
-        loss_total = tf.reduce_mean(loss_policy + loss_value + entropy)
-        self._last_batch_loss = loss_total
+        # loss_total = tf.reduce_mean(loss_policy + loss_value + entropy)
+        # self._last_batch_loss = loss_total
 
-        return loss_total
+        # return loss_total
       
     def train(self, train_data):
    
