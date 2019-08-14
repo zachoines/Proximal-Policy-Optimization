@@ -74,11 +74,13 @@ class AC_Model(tf.keras.Model):
         # self.BN3 = tf.keras.layers.BatchNormalization()
         # self.BN4 = tf.keras.layers.BatchNormalization()
 
+        self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dropout=0.5)
+
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
             kernel_initializer=tf.initializers.lecun_uniform(),
-            #kernel_regularizer=keras.regularizers.l2(l=0.1),
+            kernel_regularizer=keras.regularizers.l2(l=0.01),
             activation='linear',
             name="value_layer",
             use_bias=False,
@@ -88,7 +90,7 @@ class AC_Model(tf.keras.Model):
             self.num_actions,
             activation='linear',
             kernel_initializer=tf.initializers.lecun_uniform(),
-            #kernel_regularizer=keras.regularizers.l2(l=0.1),
+            kernel_regularizer=keras.regularizers.l2(l=0.01),
             use_bias=False,
             name="policy_layer", trainable=is_training )
 
@@ -102,6 +104,8 @@ class AC_Model(tf.keras.Model):
         hidden2_out = self.hiddenLayer2(hidden1_out)
         # hidden2_out = self.BN2(hidden2_out)
         hidden2_out = self.dropout2(hidden2_out)
+
+        lstm_out = self.lstm(tf.expand_dims(tf.dtypes.cast(hidden2_out, "float32"), axis=1))
         
         # hidden3_out = self.hiddenLayer3(hidden2_out)
         # hidden3_out = self.BN3(hidden3_out)
@@ -112,8 +116,8 @@ class AC_Model(tf.keras.Model):
         # dropout4_out = self.dropout4(hidden4_out)
 
         # Actor and the Critic outputs
-        value = self._value(hidden2_out)
-        logits = self._policy(hidden2_out)
+        value = self._value(lstm_out)
+        logits = self._policy(lstm_out)
         action_dist = tf.nn.softmax(logits)
 
         return logits, action_dist, tf.squeeze(value)

@@ -2,6 +2,7 @@
 import os
 import sys
 import numpy as np
+import time
 import tensorflow as tf
 
 # Importing the packages for OpenAI and MARIO
@@ -45,6 +46,7 @@ def run(num_steps, env, network, render):
     s = env.reset()
     done = False
     for step in range(num_steps):
+        time.sleep(.00001)
         
         # Make a prediction and take a step if the epoc is not done
         if not done:

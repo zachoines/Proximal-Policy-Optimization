@@ -84,7 +84,7 @@ class Coordinator:
         batch_states, actions, rewards, batch_advantages, _ = self._train_data
         actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float64)
         logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
-        rewards = tf.Variable(rewards, name="rewards", dtype='float64', trainable=False)
+        rewards = tf.Variable(rewards, name="rewards", dtype='float32', trainable=False)
         advantages = rewards - values
 
         # Version 1
