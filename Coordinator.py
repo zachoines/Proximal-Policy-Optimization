@@ -108,8 +108,8 @@ class Coordinator:
         policy = action_dist
         entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
         neg_log_pac = tf.math.multiply(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits), tf.stop_gradient(advantages))
-        policy_loss = tf.reduce_mean(tf.math.subtract(neg_log_pac, 0.01 * entropy))
-        self._last_batch_loss = total_loss = tf.math.add(0.5 * value_loss, policy_loss)
+        policy_loss = tf.reduce_mean(tf.math.subtract(neg_log_pac, 0.5 * entropy))
+        self._last_batch_loss = total_loss = tf.math.add(value_loss, policy_loss)
         return total_loss
 
         # Version 3
@@ -130,7 +130,7 @@ class Coordinator:
 
         # Apply Gradients
         params = self.global_model.trainable_variables
-        optimizer = tf.keras.optimizers.Adam(learning_rate=0.003, clipnorm = .5)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, clipnorm=.5)
         optimizer.minimize(self.loss, var_list=params)
 
         self.collect_stats("LOSS", self._last_batch_loss.numpy())
