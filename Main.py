@@ -51,7 +51,7 @@ if gpus:
 env_1 = 'MsPacman-ram-v0'
 
 
-env_names = [env_1, env_1, env_1]
+env_names = [env_1]
 
 # Configuration
 current_dir = os.getcwd()
