@@ -11,7 +11,7 @@ from heapq import *
 # type what you want to display here
 line_types = ["linear", "log"]
 line_type = line_types[0]
-dimensions = ["CMA", "LENGTH", "LOSS", 'd']
+dimensions = ["CMA", "LENGTH", "LOSS"]
 dimension = dimensions[0]
 
 # load in data and sort

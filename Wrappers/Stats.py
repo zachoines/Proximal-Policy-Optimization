@@ -37,7 +37,7 @@ class Stats(RewardWrapper):
     def reward(self, reward):
         # Cumulative moving average
         self.CMA = (reward + ((self.numSteps - 1) * self.CMA )) / self.numSteps
-        return reward
+        return reward / 10.0
 
 class AsynchronousPlot(threading.Thread):
     def __init__(self, collector, live = False):
