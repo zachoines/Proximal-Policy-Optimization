@@ -23,10 +23,6 @@ class AC_Model(tf.keras.Model):
         self.learning_rate = 7e-4
         self.alpha = 0.99
         self.epsilon = 1e-5
-        
-        # Model variables
-        self.input_def = tf.keras.layers.Input(shape=input_s, name="input_layer", dtype=tf.float32)
-
     
         self.hiddenLayer1 = tf.keras.layers.Dense(
             128,
@@ -34,7 +30,7 @@ class AC_Model(tf.keras.Model):
             kernel_initializer=tf.initializers.lecun_uniform(),
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer1", 
-            use_bias=False,
+            use_bias=True,
             trainable=is_training )
         
         self.hiddenLayer2 = tf.keras.layers.Dense(
@@ -43,23 +39,23 @@ class AC_Model(tf.keras.Model):
             kernel_initializer=tf.initializers.lecun_uniform(),
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer2", 
-            use_bias=False,
+            use_bias=True,
             trainable=is_training )
         
-        # self.hiddenLayer3 = tf.keras.layers.Dense(
-        #    128,
-        #     activation="relu",
-        #     kernel_initializer=tf.initializers.lecun_uniform(),
-        #     kernel_regularizer=keras.regularizers.l2(l=0.01),
-        #     name="hidden_layer3", 
-        #     use_bias=False,
-        #     trainable=is_training )
+        self.hiddenLayer3 = tf.keras.layers.Dense(
+            64,
+            activation="relu",
+            kernel_initializer=tf.initializers.lecun_uniform(),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
+            name="hidden_layer3", 
+            use_bias=False,
+            trainable=is_training )
         
         # self.hiddenLayer4 = tf.keras.layers.Dense(
         #     128,
         #     activation="relu",
         #     kernel_initializer=tf.initializers.lecun_uniform(),
-        #     kernel_regularizer=keras.regularizers.l2(l=0.01),
+        #     # kernel_regularizer=keras.regularizers.l2(l=0.01),
         #     name="hidden_layer4", 
         #     use_bias=False,
         #     trainable=is_training )
@@ -74,13 +70,13 @@ class AC_Model(tf.keras.Model):
         # self.BN3 = tf.keras.layers.BatchNormalization()
         # self.BN4 = tf.keras.layers.BatchNormalization()
 
-        self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dropout=0.5)
+        # self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
-            kernel_initializer=tf.initializers.lecun_uniform(),
-            kernel_regularizer=keras.regularizers.l2(l=0.01),
+            kernel_initializer=tf.keras.initializers.orthogonal(1.0),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
             activation='linear',
             name="value_layer",
             use_bias=False,
@@ -89,8 +85,8 @@ class AC_Model(tf.keras.Model):
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            kernel_initializer=tf.initializers.lecun_uniform(),
-            kernel_regularizer=keras.regularizers.l2(l=0.01),
+            kernel_initializer=tf.keras.initializers.orthogonal(0.1),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
             use_bias=False,
             name="policy_layer", trainable=is_training )
 
@@ -105,32 +101,32 @@ class AC_Model(tf.keras.Model):
         # hidden2_out = self.BN2(hidden2_out)
         hidden2_out = self.dropout2(hidden2_out)
 
-        lstm_out = self.lstm(tf.expand_dims(tf.dtypes.cast(hidden2_out, "float32"), axis=1))
+        # lstm_out = self.lstm(tf.expand_dims(tf.dtypes.cast(hidden2_out, "float32"), axis=1))
         
-        # hidden3_out = self.hiddenLayer3(hidden2_out)
-        # hidden3_out = self.BN3(hidden3_out)
-        # dropout3_out = self.dropout3(hidden3_out)
+        hidden3_out = self.hiddenLayer3(hidden2_out)
+        #hidden3_out = self.BN3(hidden3_out)
+        #dropout3_out = self.dropout3(hidden3_out)
         
         # hidden4_out = self.hiddenLayer4(hidden3_out)
         # hidden4_out = self.BN4(hidden4_out)
         # dropout4_out = self.dropout4(hidden4_out)
 
         # Actor and the Critic outputs
-        value = self._value(lstm_out)
-        logits = self._policy(lstm_out)
+        value = self._value(hidden3_out)
+        logits = self._policy(hidden3_out)
         action_dist = tf.nn.softmax(logits)
 
-        return logits, action_dist, tf.squeeze(value)
+        return logits, action_dist, value
     
     # Makes a step in the environment
     def step(self, observation, keep_per):
         softmax, logits, value = self.call(observation, keep_per)
-        return logits.numpy(), softmax.numpy(), value.numpy()
+        return logits.numpy(), softmax.numpy(), tf.squeeze(value).numpy()
 
     # Returns the critic estimation of the current state value
     def value_function(self, observation):
         action_dist, softmax, value = self.call(observation, 1.0)
-        return value.numpy()[0]
+        return tf.squeeze(value).numpy()[0]
 
     def save_model_weights(self): 
         try:
@@ -140,8 +136,6 @@ class AC_Model(tf.keras.Model):
         except:
             print("ERROR: There was an issue saving the model weights.")
             raise
-
-        
 
     def load_model_weights(self):
         current_dir = os.getcwd()
