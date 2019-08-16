@@ -5,9 +5,6 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.backend as k
 
-# Recreating this experiment
-# https://cdn-sv1.deepsense.ai/wp-content/uploads/2016/09/1605.01335v1-4.pdf
-
 class AC_Model(tf.keras.Model):
     def __init__(self, input_s, num_actions, is_training=True):
         super(AC_Model, self).__init__()
@@ -31,6 +28,7 @@ class AC_Model(tf.keras.Model):
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer1", 
             use_bias=True,
+            dtype="float64",
             trainable=is_training )
         
         self.hiddenLayer2 = tf.keras.layers.Dense(
@@ -40,15 +38,17 @@ class AC_Model(tf.keras.Model):
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer2", 
             use_bias=True,
+            dtype="float64",
             trainable=is_training )
         
         self.hiddenLayer3 = tf.keras.layers.Dense(
-            64,
+            128,
             activation="relu",
             kernel_initializer=tf.initializers.lecun_uniform(),
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer3", 
-            use_bias=False,
+            use_bias=True,
+            dtype="float64",
             trainable=is_training )
         
         self.hiddenLayer4 = tf.keras.layers.Dense(
@@ -57,7 +57,8 @@ class AC_Model(tf.keras.Model):
             kernel_initializer=tf.initializers.lecun_uniform(),
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer4", 
-            use_bias=False,
+            use_bias=True,
+            dtype="float64",
             trainable=is_training )
 
         self.dropout1 = tf.keras.layers.Dropout(.5)
@@ -65,12 +66,12 @@ class AC_Model(tf.keras.Model):
         self.dropout3 = tf.keras.layers.Dropout(.5)
         self.dropout4 = tf.keras.layers.Dropout(.5)
 
-        self.LN1 = tf.keras.layers.LayerNormalization()
-        self.LN2 = tf.keras.layers.LayerNormalization()
-        self.LN3 = tf.keras.layers.LayerNormalization()
-        self.LN4 = tf.keras.layers.LayerNormalization()
+        # self.LN1 = tf.keras.layers.LayerNormalization()
+        # self.LN2 = tf.keras.layers.LayerNormalization()
+        # self.LN3 = tf.keras.layers.LayerNormalization()
+        # self.LN4 = tf.keras.layers.LayerNormalization()
 
-        self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training)
+        self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dtype=tf.float64)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
@@ -94,22 +95,23 @@ class AC_Model(tf.keras.Model):
 
         # NN layers
         hidden1_out = self.hiddenLayer1(input_s)
-        hidden1_out = self.LN1(hidden1_out)
+        # hidden1_out = self.LN1(hidden1_out)
         hidden1_out = self.dropout1(hidden1_out)
         
         hidden2_out = self.hiddenLayer2(hidden1_out)
-        hidden2_out = self.LN2(hidden2_out)
+        # hidden2_out = self.LN2(hidden2_out)
         hidden2_out = self.dropout2(hidden2_out)
-
-        # lstm_out = self.lstm(tf.expand_dims(tf.dtypes.cast(hidden2_out, "float32"), axis=1))
+        # expanded = tf.expand_dims(hidden2_out, axis=1)
+        # expanded = tf.dtypes.cast(expanded, dtype="float32")
+        # lstm_out = self.lstm(expanded)
         
         hidden3_out = self.hiddenLayer3(hidden2_out)
-        hidden3_out = self.LN3(hidden3_out)
-        dropout3_out = self.dropout3(hidden3_out)
+        # hidden3_out = self.LN3(hidden3_out)
+        hidden3_out = self.dropout3(hidden3_out)
         
         hidden4_out = self.hiddenLayer4(hidden3_out)
-        hidden4_out = self.LN4(hidden4_out)
-        dropout4_out = self.dropout4(hidden4_out)
+        # hidden4_out = self.LN4(hidden4_out)
+        hidden4_out = self.dropout4(hidden4_out)
 
         # Actor and the Critic outputs
         value = self._value(hidden4_out)
@@ -135,7 +137,7 @@ class AC_Model(tf.keras.Model):
             self.save_weights(model_save_path, save_format='tf')
         except:
             print("ERROR: There was an issue saving the model weights.")
-            raise
+            pass
 
     def load_model_weights(self):
         current_dir = os.getcwd()

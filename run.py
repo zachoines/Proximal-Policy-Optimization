@@ -85,7 +85,7 @@ else:
             Test_Model.load_model_weights()
             print("Model restored.")
             print("Now running environment...")
-            run(10000, env, Test_Model, True)
+            run(1000, env, Test_Model, True)
         
         else:
             raise("There is no model available")

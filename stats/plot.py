@@ -42,7 +42,7 @@ if line_type == 'linear':
     line = slope * sorted_x + intercept
     plt.plot(sorted_x, sorted_y, label='Slope: ' + str(slope))
 
-    plt.plot(sorted_x, sorted_y,'o', sorted_x, line)
+    # plt.plot(sorted_x, sorted_y,'o', sorted_x, line)
 
     plt.xlabel('Time')
     plt.ylabel(dimension)

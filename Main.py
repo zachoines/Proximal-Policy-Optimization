@@ -52,7 +52,7 @@ if gpus:
 env_1 = 'MsPacman-ram-v0'
 
 # env_names = [env_1]
-env_names = [env_1, env_1, env_1, env_1, env_1]
+env_names = [env_1, env_1, env_1, env_1]
 
 # Configuration
 current_dir = os.getcwd()
@@ -67,12 +67,12 @@ batches_per_epoch = sys.maxsize
 num_epocs = 512 * 5
 gamma = .99
 learning_rate = 7e-4
-anneling_steps = 512 ** 2
+anneling_steps = num_epocs * 256
 
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions(["CMA", "LOSS"])
+collector.set_dimensions(["CMA", "LENGTH", "LOSS"])
 plot = AsynchronousPlot(collector, live=False)
 
 # Apply env wrappers

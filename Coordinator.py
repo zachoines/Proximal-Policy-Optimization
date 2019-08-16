@@ -33,7 +33,8 @@ class Coordinator:
         self.anneling_steps = anneling_steps
         self._current_annealed_prob = 1.0
         self._train_data = None
-        self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=30)
+        # self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=.50)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, clipnorm=.50)
  
     # Annealing entropy to encourage convergence later: 1.0 to 0.01
     def _current_entropy(self):
@@ -49,9 +50,13 @@ class Coordinator:
         else:
             return 0.01 
     # STD Mean normalization
-    def _normalize(self, x, clip_range=[-5.0, 5.0]):
+    def _normalize(self, x, clip_range=[-100.0, 100.0]):
         norm_x = tf.clip_by_value((x - tf.reduce_mean(x)) / tf.math.reduce_std(x), min(clip_range), max(clip_range))
         return norm_x
+
+    def _clip_by_range(self, x, clip_range=[-50.0, 50.0]):
+        clipped_x = tf.clip_by_value(x, min(clip_range), max(clip_range))
+        return clipped_x
             
     # Annealing temperature scales from .1 to 1.0
     def _keep_prob(self):
@@ -97,7 +102,7 @@ class Coordinator:
         # Version 1
 
         # Entropy: (1 / n) * - ∑ P_i * Log (P_i)
-        entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
+        entropy = tf.reduce_mean(self.global_model.softmax_entropy(action_dist))
 
         # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
         neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
@@ -106,7 +111,7 @@ class Coordinator:
         # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
         value_loss = tf.reduce_sum(tf.losses.mean_squared_error(values, rewards))
         
-        # Total losses
+        # Total loss = Policy gradient loss - entropy * entropy coefficient + Value coefficient * value loss
         self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - 0.01 * entropy
         
         
@@ -123,7 +128,7 @@ class Coordinator:
 
         # Version 3
 
-        # value_loss = advantages ** 2
+        # value_loss = tf.square(rewards - tf.squeeze(values))
 
         # entropy = tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-20), axis=1)
 
@@ -140,20 +145,21 @@ class Coordinator:
 
         # policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits)
         # policy_loss *= tf.stop_gradient(advantages)
-        # policy_loss -= 0.5 * entropy
-        # self._last_batch_loss = total_loss = tf.reduce_mean((0.01 * value_loss + policy_loss))
+        # policy_loss -= 0.1 * entropy
+        # self._last_batch_loss = total_loss = tf.reduce_mean((value_loss + policy_loss))
 
 
         # version 5
         # responsible_outputs = tf.reduce_sum(action_dist * actions_hot, [1])
 
-        # #Loss functions
+        #Loss functions
         # value_loss = 0.5 * tf.reduce_mean(tf.square(tf.stop_gradient(self._normalize(rewards)) - self._normalize(tf.squeeze(values))))
         # entropy = - tf.reduce_mean(action_dist * tf.math.log(action_dist))
         # policy_loss = -tf.reduce_mean(tf.math.log(responsible_outputs) * tf.stop_gradient(advantages))
         # self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - entropy * 0.01
 
-        return total_loss 
+        self._last_batch_loss = total_loss = self._clip_by_range(total_loss, clip_range=[-60, 60])
+        return total_loss
       
     def train(self, train_data):
    
@@ -161,8 +167,6 @@ class Coordinator:
 
         # Apply Gradients
         params = self.global_model.trainable_variables
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, clipnorm=.5)
-        #optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=.50)
         self.optimizer.minimize(self.loss, var_list=params)
 
         self.collect_stats("LOSS", self._last_batch_loss.numpy())
@@ -302,7 +306,7 @@ class Coordinator:
                         # Or simply... 
                         # δ_t == G_t - V: 
                         # 
-                        boot_strap = -1.0     
+                        boot_strap = 0.0    
 
                         if (not done):
                             _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), 1.0)
