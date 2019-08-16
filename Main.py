@@ -23,6 +23,7 @@ import gym
 
 # Locally defined classes
 from Wrappers import preprocess
+from Wrappers.Normalize import Normalize
 from Wrappers.Monitor import Monitor
 from Wrappers.Stats import Stats, Collector, AsynchronousPlot
 from Worker import Worker, WorkerThread
@@ -79,6 +80,7 @@ counter = 0
 for env in env_names:
     counter += 1
     env = gym.make(env)
+    env = Normalize(env)
     env = Stats(env, collector)
     envs.append(env)
 

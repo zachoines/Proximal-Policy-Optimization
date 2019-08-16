@@ -25,7 +25,7 @@ class Coordinator:
         self.batches_per_epoch = batches_per_epoch
         self.batch_size = batch_size
         self.gamma = gamma
-        self.total_loss = 0
+        self._last_batch_loss = 0
         self.plot = plot   
         self.total_steps = 0
         self.pre_train_steps = 0
@@ -33,6 +33,7 @@ class Coordinator:
         self.anneling_steps = anneling_steps
         self._current_annealed_prob = 1.0
         self._train_data = None
+        self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=30)
  
     # Annealing entropy to encourage convergence later: 1.0 to 0.01
     def _current_entropy(self):
@@ -47,10 +48,10 @@ class Coordinator:
             return self._current_annealed_prob
         else:
             return 0.01 
-    
-    def _normalize(x, clip_range=[-1.0, 1.0]):
-        norm_x = tf.clip_by_value((x - x.mean()) / x.std(), min(clip_range), max(clip_range))
-        return norm_x, x
+    # STD Mean normalization
+    def _normalize(self, x, clip_range=[-5.0, 5.0]):
+        norm_x = tf.clip_by_value((x - tf.reduce_mean(x)) / tf.math.reduce_std(x), min(clip_range), max(clip_range))
+        return norm_x
             
     # Annealing temperature scales from .1 to 1.0
     def _keep_prob(self):
@@ -89,20 +90,24 @@ class Coordinator:
         actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float64)
         logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float64))
         rewards = tf.Variable(rewards, name="rewards", dtype=tf.float64, trainable=False)
-        advantages = rewards - values
+        advantages = rewards - tf.squeeze(values)
+
+        advantages = self._normalize(advantages)
 
         # Version 1
 
-        # # Entropy: (1 / n) * - ∑ P_i * Log (P_i)
-        # entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
+        # Entropy: (1 / n) * - ∑ P_i * Log (P_i)
+        entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
 
-        # # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
-        # neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
-        # policy_loss = tf.reduce_mean(neg_log_prob * tf.stop_gradient(advantages))
+        # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
+        neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
+        policy_loss = tf.reduce_mean(neg_log_prob * tf.stop_gradient(advantages))
 
-        # # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        # value_loss = tf.reduce_mean(tf.math.square(values - rewards))
-        # self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - 0.01 * entropy
+        # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
+        value_loss = tf.reduce_sum(tf.losses.mean_squared_error(values, rewards))
+        
+        # Total losses
+        self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - 0.01 * entropy
         
         
 
@@ -128,25 +133,25 @@ class Coordinator:
         # self._last_batch_loss = total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
 
         # Version 4
-        # value_loss = advantages ** 2
+        # value_loss = tf.square(rewards - tf.squeeze(values))
 
         # policy = action_dist
         # entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
 
-        # policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits)
+        # policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits)
         # policy_loss *= tf.stop_gradient(advantages)
-        # policy_loss -= 0.01 * entropy
-        # total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
+        # policy_loss -= 0.5 * entropy
+        # self._last_batch_loss = total_loss = tf.reduce_mean((0.01 * value_loss + policy_loss))
 
 
         # version 5
-        responsible_outputs = tf.reduce_sum(action_dist * actions_hot, [1])
+        # responsible_outputs = tf.reduce_sum(action_dist * actions_hot, [1])
 
-        #Loss functions
-        value_loss = 0.5 * tf.reduce_mean(tf.square(tf.stop_gradient(rewards) - values))
-        entropy = - tf.reduce_mean(action_dist * tf.math.log(action_dist))
-        policy_loss = -tf.reduce_mean(tf.math.log(responsible_outputs) * tf.stop_gradient(advantages))
-        self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - entropy * 0.01
+        # #Loss functions
+        # value_loss = 0.5 * tf.reduce_mean(tf.square(tf.stop_gradient(self._normalize(rewards)) - self._normalize(tf.squeeze(values))))
+        # entropy = - tf.reduce_mean(action_dist * tf.math.log(action_dist))
+        # policy_loss = -tf.reduce_mean(tf.math.log(responsible_outputs) * tf.stop_gradient(advantages))
+        # self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - entropy * 0.01
 
         return total_loss 
       
@@ -157,8 +162,8 @@ class Coordinator:
         # Apply Gradients
         params = self.global_model.trainable_variables
         # optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, clipnorm=.5)
-        optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4)
-        optimizer.minimize(self.loss, var_list=params)
+        #optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=.50)
+        self.optimizer.minimize(self.loss, var_list=params)
 
         self.collect_stats("LOSS", self._last_batch_loss.numpy())
 
@@ -300,9 +305,8 @@ class Coordinator:
                         boot_strap = -1.0     
 
                         if (not done):
-                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation / 256, axis=0), 1.0)
-                            # bootstrapped_rewards = np.asarray(batch_rewards + [boot_strap])
-                            # discounted_rewards = self.discount(bootstrapped_rewards, self.gamma)[:-1]
+                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), 1.0)
+
                         discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)
                         batch_rewards = discounted_bootstrapped_rewards
                         batch_advantages = np.array(batch_rewards) - np.array(batch_values)
