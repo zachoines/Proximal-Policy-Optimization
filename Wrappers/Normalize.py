@@ -13,6 +13,8 @@ class Normalize(Wrapper):
 
     def step(self, action):
         observation, reward, done, info = self.env.step(action)
+        if done:
+            reward = -10.0
         return self.observation(observation), self.reward(reward - 0.01), done, info
 
     def reward(self, reward):

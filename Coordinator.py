@@ -71,6 +71,7 @@ class Coordinator:
             self._currentE -= stepDrop
             return keep_per()
         else:
+            print("Anneling Finished")
             return 1.0      
     
     # Convert numbered actions into one-hot formate [0 , 0, 1, 0, 0]
