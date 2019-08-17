@@ -15,9 +15,10 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, model, local_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
-        self.global_model = model
+    def __init__(self, global_model, local_model, old_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
+        self.global_model = global_model
         self.local_model = local_model
+        self.old_gradients_model = old_model
         self.model_save_path = model_save_path
         self.workers = workers
         self.num_envs = num_envs
@@ -34,15 +35,22 @@ class Coordinator:
         self._current_annealed_prob = 1.0
         self._train_data = None
         # self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=.50)
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, clipnorm=.50)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=.50)
+        # self.optimizer = tf.keras.optimizers.Adam(clipnorm=.50)
+
+        # PPO related variables
+        self._clip_range = .2
  
     # Annealing entropy to encourage convergence later: 1.0 to 0.01
     def _current_entropy(self):
-        startE = 1.0
+        startE = .30
         endE = 0.01 
 
         # Final chance of random action
         stepDrop = (startE - endE) / self.anneling_steps
+
+        if self.total_steps % 256 == 0:
+            print("Current entropy is: " + str(self._current_annealed_prob))
 
         if self._current_annealed_prob >= endE:
             self._current_annealed_prob -= stepDrop
@@ -68,8 +76,15 @@ class Coordinator:
         stepDrop = (startE - endE) / self.anneling_steps
 
         if self._currentE >= endE and total_steps >= pre_train_steps:
+            
             self._currentE -= stepDrop
-            return keep_per()
+            p = keep_per()
+
+            if self.total_steps % 256 == 0:
+                print("Current temp is: " + str(p))
+            
+            return p
+
         else:
             print("Anneling Finished")
             return 1.0      
@@ -96,70 +111,59 @@ class Coordinator:
         actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float64)
         logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float64))
         rewards = tf.Variable(rewards, name="rewards", dtype=tf.float64, trainable=False)
+        
+        # Calculate and then mean-std normalize advantages
         advantages = rewards - tf.squeeze(values)
-
         advantages = self._normalize(advantages)
 
-        # Version 1
+        old_logits, _, old_values = self.old_gradients_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
 
-        # Entropy: (1 / n) * - ∑ P_i * Log (P_i)
-        entropy = tf.reduce_mean(self.global_model.softmax_entropy(action_dist))
+        # Entropy bonus
+        entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
 
-        # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
+        # Remove the extra dims
+        values = tf.squeeze(values)
+        old_values = tf.squeeze(old_values)
+
+        # Value loss
+        clipped_values = old_values + tf.clip_by_value(values - old_values, - self._clip_range, self._clip_range)
+        value_loss_unclipped = tf.square(values - rewards)
+        value_loss_clipped = tf.square(clipped_values - rewards)
+        value_loss = .5 * tf.reduce_mean(tf.maximum(value_loss_unclipped, value_loss_clipped))
+
+        # Policy loss
+        old_neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=old_logits) 
         neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
-        policy_loss = tf.reduce_mean(neg_log_prob * tf.stop_gradient(advantages))
+        policy_params_ratio = tf.exp(old_neg_log_prob - neg_log_prob)
+        policy_loss_1 = tf.stop_gradient(-advantages) * policy_params_ratio
+        policy_loss_2 = tf.stop_gradient(-advantages) * tf.clip_by_value(policy_params_ratio, 1.0 - self._clip_range, 1.0 + self._clip_range)
+        policy_loss = tf.reduce_mean(tf.maximum(policy_loss_1, policy_loss_2))
 
-        # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
-        value_loss = tf.reduce_sum(tf.losses.mean_squared_error(values, rewards))
+        # Final total loss
+        self._last_batch_loss = total_loss = policy_loss - entropy * 0.01 + value_loss * self.global_model.value_function_coeff
+
+        # Save the new 'old' policy for the next iteration
+        self.old_gradients_model.set_weights(self.global_model.get_weights())
+
+
+        # Loss for the vanilla AC2
+        # # Entropy: (1 / n) * - ∑ P_i * Log (P_i)
+        # entropy = tf.reduce_mean(self.global_model.softmax_entropy(action_dist))
+
+        # # Policy Loss:  (1 / n) * ∑ * -log π(a_i|s_i) * A(s_i, a_i) 
+        # neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits) 
+        # policy_loss = tf.reduce_mean(neg_log_prob * tf.stop_gradient(advantages))
+
+        # # Value loss "MSE": (1 / n) * ∑[V(i) - R_i]^2
+        # value_loss = tf.reduce_sum(tf.losses.mean_squared_error(values, rewards))
         
-        # Total loss = Policy gradient loss - entropy * entropy coefficient + Value coefficient * value loss
-        self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - 0.01 * entropy
+        # # Total loss = Policy gradient loss - entropy * entropy coefficient + Value coefficient * value loss
+        # self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - 0.01 * entropy
         
         
 
-        # Version 2
 
-        # value_loss = tf.reduce_mean(tf.square(rewards - values))
-        # policy = action_dist
-        # entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
-        # neg_log_pac = tf.math.multiply(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits), tf.stop_gradient(advantages))
-        # policy_loss = tf.reduce_mean(tf.math.subtract(neg_log_pac, 0.01 * entropy))
-        # self._last_batch_loss = total_loss = tf.math.add(value_loss, policy_loss)
-        # return total_loss
-
-        # Version 3
-
-        # value_loss = tf.square(rewards - tf.squeeze(values))
-
-        # entropy = tf.reduce_sum(action_dist * tf.math.log(action_dist + 1e-20), axis=1)
-
-        # policy_loss = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=logits)
-        # policy_loss *= tf.stop_gradient(advantages)
-        # policy_loss -= 0.01 * entropy
-        # self._last_batch_loss = total_loss = tf.reduce_mean((0.5 * value_loss + policy_loss))
-
-        # Version 4
-        # value_loss = tf.square(rewards - tf.squeeze(values))
-
-        # policy = action_dist
-        # entropy = tf.nn.softmax_cross_entropy_with_logits(labels=policy, logits=logits)
-
-        # policy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=actions, logits=logits)
-        # policy_loss *= tf.stop_gradient(advantages)
-        # policy_loss -= 0.1 * entropy
-        # self._last_batch_loss = total_loss = tf.reduce_mean((value_loss + policy_loss))
-
-
-        # version 5
-        # responsible_outputs = tf.reduce_sum(action_dist * actions_hot, [1])
-
-        #Loss functions
-        # value_loss = 0.5 * tf.reduce_mean(tf.square(tf.stop_gradient(self._normalize(rewards)) - self._normalize(tf.squeeze(values))))
-        # entropy = - tf.reduce_mean(action_dist * tf.math.log(action_dist))
-        # policy_loss = -tf.reduce_mean(tf.math.log(responsible_outputs) * tf.stop_gradient(advantages))
-        # self._last_batch_loss = total_loss = 0.5 * value_loss + policy_loss - entropy * 0.01
-
-        self._last_batch_loss = total_loss = self._clip_by_range(total_loss, clip_range=[-60, 60])
+        # self._last_batch_loss = total_loss = self._clip_by_range(total_loss, clip_range=[-1, 1])
         return total_loss
       
     def train(self, train_data):

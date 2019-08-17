@@ -20,14 +20,17 @@ class Stats(RewardWrapper):
         self.numSteps = 0
         self.collector = collector
         self.CMA = 0
+        self.TOTAL_EPISODE_REWARDS = 0
 
     def reset(self, **kwargs):
         if self.numSteps > 0:
             self.collector.collect('CMA', self.CMA)
             self.collector.collect('LENGTH', self.numSteps)
+            self.collector.collect('TOTAL_EPISODE_REWARDS', self.TOTAL_EPISODE_REWARDS)
 
         self.numSteps = 0
         self.CMA = 0
+        self.TOTAL_EPISODE_REWARDS = 0
         return self.env.reset(**kwargs)
 
     def step(self, action):
@@ -36,6 +39,8 @@ class Stats(RewardWrapper):
         return observation, self.reward(reward), done, info
 
     def reward(self, reward):
+        self.TOTAL_EPISODE_REWARDS += reward
+
         # Cumulative moving average
         self.CMA = (reward + ((self.numSteps - 1) * self.CMA )) / self.numSteps
         return reward

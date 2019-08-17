@@ -50,6 +50,7 @@ if gpus:
 
 # Environments to run
 env_1 = 'MsPacman-ram-v0'
+env_2 = "Breakout-ram-v0"
 
 # env_names = [env_1]
 env_names = [env_1, env_1, env_1, env_1]
@@ -64,15 +65,15 @@ record = True
 num_envs = len(env_names)
 batch_size = 16
 batches_per_epoch = sys.maxsize
-num_epocs = 512 * 5
+num_epocs = 512 * 10
 gamma = .99
 learning_rate = 7e-4
-anneling_steps = num_epocs * 256
+anneling_steps = num_epocs * batch_size
 
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions(["CMA", "LENGTH", "LOSS"])
+collector.set_dimensions(["CMA", "LENGTH", "LOSS", 'TOTAL_EPISODE_REWARDS'])
 plot = AsynchronousPlot(collector, live=False)
 
 # Apply env wrappers
@@ -103,6 +104,8 @@ Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 Global_Model(tf.convert_to_tensor(np.random.random((1, 128))))
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
 step_model(tf.convert_to_tensor(np.random.random((1, 128))))
+old_gradient_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
+old_gradient_model(tf.convert_to_tensor(np.random.random((1, 128))))
 
 
 # Load model if exists
@@ -114,6 +117,8 @@ else:
             
             Global_Model.load_model_weights()
             step_model.load_model_weights()
+            old_gradient_model.load_model_weights()
+
             for env in envs:
                 workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
             
@@ -129,7 +134,7 @@ else:
         print("ERROR: There was an issue loading the model!")
         raise
 
-coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
+coordinator = Coordinator(Global_Model, step_model, old_gradient_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
 
 # Train and save
 if coordinator.run():
