@@ -20,6 +20,8 @@ class Stats(RewardWrapper):
         self.numSteps = 0
         self.collector = collector
         self.CMA = 0
+        self.EMA = 0
+        self.reward_buffer = 0
         self.TOTAL_EPISODE_REWARDS = 0
 
     def reset(self, **kwargs):
@@ -27,10 +29,11 @@ class Stats(RewardWrapper):
             self.collector.collect('CMA', self.CMA)
             self.collector.collect('LENGTH', self.numSteps)
             self.collector.collect('TOTAL_EPISODE_REWARDS', self.TOTAL_EPISODE_REWARDS)
+            self.collector.collect('EMA', self.EMA)
 
-        self.numSteps = 0
-        self.CMA = 0
         self.TOTAL_EPISODE_REWARDS = 0
+        # Dont reset EMA
+
         return self.env.reset(**kwargs)
 
     def step(self, action):
@@ -43,6 +46,11 @@ class Stats(RewardWrapper):
 
         # Cumulative moving average
         self.CMA = (reward + ((self.numSteps - 1) * self.CMA )) / self.numSteps
+
+        # Exponential Moving Average (with 256 step smoothing)
+        self.EMA = (reward * (2 / (1 + 256))) + (self.EMA * (1 - (2 / (1 + 256))))
+
+
         return reward
 
 class AsynchronousPlot(threading.Thread):

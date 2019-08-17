@@ -29,7 +29,7 @@ class AC_Model(tf.keras.Model):
             128,
             activation="relu",
             kernel_initializer=tf.initializers.lecun_uniform(),
-            kernel_regularizer=keras.regularizers.l2(l=0.01),
+            #kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer1", 
             use_bias=True,
             dtype="float64",
@@ -39,7 +39,7 @@ class AC_Model(tf.keras.Model):
             128,
             activation="relu",
             kernel_initializer=tf.initializers.lecun_uniform(),
-            kernel_regularizer=keras.regularizers.l2(l=0.01),
+            #kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer2", 
             use_bias=True,
             dtype="float64",
@@ -49,7 +49,7 @@ class AC_Model(tf.keras.Model):
             128,
             activation="relu",
             kernel_initializer=tf.initializers.lecun_uniform(),
-            kernel_regularizer=keras.regularizers.l2(l=0.01),
+            #kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer3", 
             use_bias=True,
             dtype="float64",
@@ -75,7 +75,7 @@ class AC_Model(tf.keras.Model):
         # self.LN3 = tf.keras.layers.LayerNormalization()
         # self.LN4 = tf.keras.layers.LayerNormalization()
 
-        self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dtype=tf.float64)
+        # self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dtype=tf.float64)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
