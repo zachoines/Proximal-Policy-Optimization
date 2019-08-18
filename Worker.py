@@ -22,7 +22,7 @@ class WorkerThread(Thread):
 # Class to represent a worker in an environment. Call run() to generate a batch. 
 class Worker():
 
-    def __init__(self, network, env, batch_size = 32, render = True, exploration="bayesian"):
+    def __init__(self, network, env, batch_size = 32, render = True, exploration="Epsilon_greedy"):
 
         # Epsisode collected variables
         self._batch_buffer = []
@@ -53,10 +53,10 @@ class Worker():
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
                 self.total_steps += 1
-                [logits], [action_dist], value = self.network.step(np.expand_dims(self.s, axis=0), 1 - keep_prob)
+                [logits], [action_dist], value = self.network.step(np.expand_dims(self.s, axis=0), keep_p=keep_prob)
 
                 # temperature=(1 - keep_prob) * 10
-                action = self.action_select(logits, exploration="bayesian", temperature=(1 - keep_prob))
+                action = self.action_select(logits, exploration="Epsilon_greedy", temperature=(1 - keep_prob))
                 s_t, reward, d, stuff = self.env.step(action)
                 self._done = d
 
@@ -84,12 +84,12 @@ class Worker():
             
 
     # Boltzmann Softmax style action selection
-    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.1):
+    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.2):
         
-
+        #  / ((temperature) * 10)
         if exploration == "boltzmann":        
             
-            dist = tf.nn.softmax(dist / ((temperature) * 10)).numpy()
+            dist = tf.nn.softmax(dist).numpy()
             a = np.random.choice(dist,p=dist)
             probs = dist == a
             a = np.argmax(probs)

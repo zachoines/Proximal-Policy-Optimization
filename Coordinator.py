@@ -31,12 +31,12 @@ class Coordinator:
         self.total_steps = 0
         self.pre_train_steps = 0
         self._currentE = 1.0
+        self.current_prob = 0.0
         self.anneling_steps = anneling_steps
         self._current_annealed_prob = 1.0
         self._train_data = None
         # self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=.50)
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=.50)
-        # self.optimizer = tf.keras.optimizers.Adam(clipnorm=.50)
 
         # PPO related variables
         self._clip_range = .2
@@ -57,6 +57,7 @@ class Coordinator:
             return self._current_annealed_prob
         else:
             return 0.01 
+    
     # STD Mean normalization
     def _normalize(self, x, clip_range=[-100.0, 100.0]):
         norm_x = tf.clip_by_value((x - tf.reduce_mean(x)) / tf.math.reduce_std(x), min(clip_range), max(clip_range))
@@ -106,17 +107,17 @@ class Coordinator:
        
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self):
-        
+        prob = self.current_prob
         batch_states, actions, rewards, batch_advantages, _ = self._train_data
         actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float64)
-        logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float64))
+        logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float64), keep_p=prob)
         rewards = tf.Variable(rewards, name="rewards", dtype=tf.float64, trainable=False)
         
         # Calculate and then mean-std normalize advantages
         advantages = rewards - tf.squeeze(values)
         advantages = self._normalize(advantages)
 
-        old_logits, _, old_values = self.old_gradients_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
+        old_logits, _, old_values = self.old_gradients_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32), keep_p=prob)
 
         # Entropy bonus
         entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
@@ -248,6 +249,7 @@ class Coordinator:
                     # Send workers out to threads
                     threads = []
                     prob = self._keep_prob()
+                    self.current_prob = prob
                     for worker in self.workers:
                         threads.append(WorkerThread(target=worker.run, args=([prob])))
 
@@ -314,7 +316,7 @@ class Coordinator:
                         boot_strap = 0.0    
 
                         if (not done):
-                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), 1.0)
+                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), keep_p=self.current_prob)
 
                         discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)
                         batch_rewards = discounted_bootstrapped_rewards
