@@ -55,20 +55,26 @@ class AC_Model(tf.keras.Model):
             dtype="float64",
             trainable=is_training )
         
-        # self.hiddenLayer4 = tf.keras.layers.Dense(
-        #     128,
-        #     activation="relu",
-        #     kernel_initializer=tf.initializers.lecun_uniform(),
-        #     # kernel_regularizer=keras.regularizers.l2(l=0.01),
-        #     name="hidden_layer4", 
-        #     use_bias=True,
-        #     dtype="float64",
-        #     trainable=is_training )
+        self.hiddenLayer4 = tf.keras.layers.Dense(
+            128,
+            activation="relu",
+            kernel_initializer=tf.initializers.lecun_uniform(),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
+            name="hidden_layer4", 
+            use_bias=True,
+            dtype="float64",
+            trainable=is_training )
+            
 
         # self.dropout1 = tf.keras.layers.Dropout(.5)
         # self.dropout2 = tf.keras.layers.Dropout(.5)
         # self.dropout3 = tf.keras.layers.Dropout(.5)
-        #  self.dropout4 = tf.keras.layers.Dropout(.5)
+        # self.dropout4 = tf.keras.layers.Dropout(.5)
+
+        self.dropout1 = AnnealedDropout(.5)
+        self.dropout2 = AnnealedDropout(.5)
+        self.dropout3 = AnnealedDropout(.5)
+        self.dropout4 = AnnealedDropout(.5)
 
         # self.LN1 = tf.keras.layers.LayerNormalization()
         # self.LN2 = tf.keras.layers.LayerNormalization()
@@ -100,26 +106,26 @@ class AC_Model(tf.keras.Model):
         # NN layers
         hidden1_out = self.hiddenLayer1(input_s)
         # hidden1_out = self.LN1(hidden1_out)
-        # hidden1_out = self.dropout1(hidden1_out)
+        hidden1_out = self.dropout1(hidden1_out, rate=keep_p)
         
         hidden2_out = self.hiddenLayer2(hidden1_out)
         # hidden2_out = self.LN2(hidden2_out)
-        # hidden2_out = self.dropout2(hidden2_out)
+        hidden2_out = self.dropout2(hidden2_out, rate=keep_p)
         # expanded = tf.expand_dims(hidden2_out, axis=1)
         # expanded = tf.dtypes.cast(expanded, dtype="float32")
         # lstm_out = self.lstm(expanded)
         
         hidden3_out = self.hiddenLayer3(hidden2_out)
         # hidden3_out = self.LN3(hidden3_out)
-        # hidden3_out = self.dropout3(hidden3_out)
+        hidden3_out = self.dropout3(hidden3_out, rate=keep_p)
         
-        #hidden4_out = self.hiddenLayer4(hidden3_out)
+        hidden4_out = self.hiddenLayer4(hidden3_out)
         # hidden4_out = self.LN4(hidden4_out)
-        #hidden4_out = self.dropout4(hidden4_out)
+        hidden4_out = self.dropout4(hidden4_out, rate=keep_p)
 
         # Actor and the Critic outputs
-        value = self._value(hidden3_out)
-        logits = self._policy(hidden3_out)
+        value = self._value(hidden4_out)
+        logits = self._policy(hidden4_out)
         action_dist = tf.nn.softmax(logits)
 
         return logits, action_dist, value
@@ -159,3 +165,19 @@ class AC_Model(tf.keras.Model):
     # standard entropy
     def softmax_entropy(self, p0):
         return - tf.reduce_sum(p0 * tf.math.log(p0 + 1e-16), axis=1)
+
+    class AnnealedDropout(tf.keras.layers.Layer):
+        def __init__(self, rate,  **kwargs):
+            super(AnnealedDropout, self).__init__(**kwargs)
+            self.rate = min(1., max(0., rate))
+     
+        def call(self, inputs, rate=-1, training=True):
+            if rate == -1:
+                rate == self.rate
+
+            if training:
+                return tf.nn.dropout(inputs, rate=rate)
+            
+            return inputs
+
+  

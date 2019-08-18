@@ -11,8 +11,8 @@ from heapq import *
 # type what you want to display here
 line_types = ["linear", "log"]
 line_type = line_types[0]
-dimensions = ["CMA", "EMA", 'TOTAL_EPISODE_REWARDS', "LENGTH", "LOSS"]
-dimension = dimensions[2]
+dimensions = ["CMA", "EMA", "SMA", 'TOTAL_EPISODE_REWARDS', "LENGTH", "LOSS"]
+dimension = dimensions[0]
 
 # load in data and sort
 heap = []
@@ -42,7 +42,7 @@ if line_type == 'linear':
     line = slope * sorted_x + intercept
     plt.plot(sorted_x, sorted_y, label='Slope: ' + str(slope))
 
-    plt.plot(sorted_x, sorted_y,'o', sorted_x, line)
+    # plt.plot(sorted_x, sorted_y,'o', sorted_x, line)
 
     plt.xlabel('Time')
     plt.ylabel(dimension)

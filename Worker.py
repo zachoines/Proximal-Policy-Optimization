@@ -53,10 +53,10 @@ class Worker():
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
                 self.total_steps += 1
-                [logits], [action_dist], value = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
+                [logits], [action_dist], value = self.network.step(np.expand_dims(self.s, axis=0), 1 - keep_prob)
 
                 # temperature=(1 - keep_prob) * 10
-                action = self.action_select(logits, exploration="Epsilon_greedy", temperature=(1 - keep_prob))
+                action = self.action_select(logits, exploration="bayesian", temperature=(1 - keep_prob))
                 s_t, reward, d, stuff = self.env.step(action)
                 self._done = d
 

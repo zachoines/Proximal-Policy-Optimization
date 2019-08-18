@@ -73,7 +73,7 @@ anneling_steps = num_epocs * batch_size
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions(["CMA", "EMA", "LENGTH", "LOSS", 'TOTAL_EPISODE_REWARDS'])
+collector.set_dimensions(["CMA", "EMA", "SMA", "LENGTH", "LOSS", 'TOTAL_EPISODE_REWARDS'])
 plot = AsynchronousPlot(collector, live=False)
 
 # Apply env wrappers

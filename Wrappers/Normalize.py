@@ -16,9 +16,10 @@ class Normalize(Wrapper):
         
         # discourage terminal states
         # or info['ale.lives'] < 3
-        if done:
+        if done or info['ale.lives'] < 3:
             reward += -1.0
             done = True
+
         return self.observation(observation), self.reward(reward) - .01, done, info
 
     def reward(self, reward):
