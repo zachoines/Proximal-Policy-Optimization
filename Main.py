@@ -13,6 +13,8 @@ import tensorflow.keras as keras
 import tensorflow.keras.backend as K
 from tensorflow.python.client import device_lib
 
+from Wrappers.preprocess import FrameSkip
+
 
 print("GPU Available: ", tf.test.is_gpu_available())
 
@@ -64,7 +66,7 @@ record = True
 # Enviromental vars
 num_envs = len(env_names)
 batch_size = 16
-batches_per_epoch = sys.maxsize
+batches_per_epoch = 256
 num_epocs = 512 * 10
 gamma = .99
 learning_rate = 7e-4
@@ -82,6 +84,7 @@ for env in env_names:
     counter += 1
     env = gym.make(env)
     env = Normalize(env)
+    # env = FrameSkip(env, 4)
     env = Stats(env, collector)
     envs.append(env)
 

@@ -47,7 +47,7 @@ class AC_Model(tf.keras.Model):
             128,
             activation="relu",
             kernel_initializer=tf.initializers.lecun_uniform(),
-            #kernel_regularizer=keras.regularizers.l2(l=0.01),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer1", 
             use_bias=True,
             dtype="float64",
@@ -57,7 +57,7 @@ class AC_Model(tf.keras.Model):
             128,
             activation="relu",
             kernel_initializer=tf.initializers.lecun_uniform(),
-            #kernel_regularizer=keras.regularizers.l2(l=0.01),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer2", 
             use_bias=True,
             dtype="float64",
@@ -67,7 +67,7 @@ class AC_Model(tf.keras.Model):
             128,
             activation="relu",
             kernel_initializer=tf.initializers.lecun_uniform(),
-            #kernel_regularizer=keras.regularizers.l2(l=0.01),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer3", 
             use_bias=True,
             dtype="float64",
@@ -84,15 +84,11 @@ class AC_Model(tf.keras.Model):
         #     trainable=is_training )
             
 
-        self.dropout1 = tf.keras.layers.Dropout(.5)
-        self.dropout2 = tf.keras.layers.Dropout(.5)
-        self.dropout3 = tf.keras.layers.Dropout(.5)
+        # self.dropout1 = tf.keras.layers.Dropout(.5)
+        # self.dropout2 = tf.keras.layers.Dropout(.5)
+        # self.dropout3 = tf.keras.layers.Dropout(.5)
         # self.dropout4 = tf.keras.layers.Dropout(.5)
 
-        # self.LN1 = tf.keras.layers.LayerNormalization()
-        # self.LN2 = tf.keras.layers.LayerNormalization()
-        # self.LN3 = tf.keras.layers.LayerNormalization()
-        # self.LN4 = tf.keras.layers.LayerNormalization()
 
         # self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dtype=tf.float64)
 
@@ -118,23 +114,16 @@ class AC_Model(tf.keras.Model):
 
         # NN layers
         hidden1_out = self.hiddenLayer1(input_s)
-        # hidden1_out = self.LN1(hidden1_out)
-        hidden1_out = self.dropout1(hidden1_out)
+        # hidden1_out = self.dropout1(hidden1_out)
         
         hidden2_out = self.hiddenLayer2(hidden1_out)
-        # hidden2_out = self.LN2(hidden2_out)
-        hidden2_out = self.dropout2(hidden2_out)
-        # expanded = tf.expand_dims(hidden2_out, axis=1)
-        # expanded = tf.dtypes.cast(expanded, dtype="float32")
-        # lstm_out = self.lstm(expanded)
+        # hidden2_out = self.dropout2(hidden2_out)
         
         hidden3_out = self.hiddenLayer3(hidden2_out)
-        # hidden3_out = self.LN3(hidden3_out)
-        hidden3_out = self.dropout3(hidden3_out)
+        # hidden3_out = self.dropout3(hidden3_out)
         
         # hidden4_out = self.hiddenLayer4(hidden3_out)
-        # hidden4_out = self.LN4(hidden4_out)
-        # hidden4_out = self.dropout4(hidden4_out, rate = (1 - keep_p))
+        # hidden4_out = self.dropout4(hidden4_out)
 
         # Actor and the Critic outputs
         value = self._value(hidden3_out)

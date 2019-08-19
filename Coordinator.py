@@ -115,7 +115,7 @@ class Coordinator:
         
         # Calculate and then mean-std normalize advantages
         advantages = rewards - tf.squeeze(values)
-        advantages = self._normalize(advantages)
+        # advantages = self._normalize(advantages)
 
         old_logits, _, old_values = self.old_gradients_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32), keep_p=prob)
 

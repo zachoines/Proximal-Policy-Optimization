@@ -84,7 +84,7 @@ class Worker():
             
 
     # Boltzmann Softmax style action selection
-    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.2):
+    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.1):
         
         #  / ((temperature) * 10)
         if exploration == "boltzmann":        
