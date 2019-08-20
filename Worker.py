@@ -56,6 +56,7 @@ class Worker():
                 [logits], [action_dist], value = self.network.step(np.expand_dims(self.s, axis=0), keep_p=keep_prob)
 
                 # temperature=(1 - keep_prob) * 10
+                # , exploration="Epsilon_greedy"
                 action = self.action_select(logits, exploration="Epsilon_greedy", temperature=(1 - keep_prob))
                 s_t, reward, d, stuff = self.env.step(action)
                 self._done = d
@@ -84,17 +85,20 @@ class Worker():
             
 
     # Boltzmann Softmax style action selection
-    def action_select(self, dist, exploration="boltzmann", temperature=1.0, epsilon=.1):
+    def action_select(self, dist, exploration="", temperature=1.0, epsilon=.2):
         
         #  / ((temperature) * 10)
         if exploration == "boltzmann":        
             
-            dist = tf.nn.softmax(dist).numpy()
-            a = np.random.choice(dist,p=dist)
-            probs = dist == a
-            a = np.argmax(probs)
+            dist = tf.nn.softmax(dist / ((temperature) * 5)).numpy()
+            # a = np.random.choice(dist,p=dist)
+            # probs = dist == a
+            # a = np.argmax(probs)
 
+            [probas] = np.random.multinomial(1, dist, 1)
+            a = np.argmax(probas)
             return a
+
         
         # Use with large dropout annealed over time
         elif exploration == "bayesian":
@@ -112,4 +116,8 @@ class Worker():
                 dist = tf.nn.softmax(dist).numpy() 
                 a = np.argmax(dist)
                 return a
+        else:
+
+            noise = tf.random.uniform(dist.shape)
+            return tf.argmax(dist - tf.math.log(-tf.math.log(noise)))
 

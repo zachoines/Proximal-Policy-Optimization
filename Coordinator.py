@@ -36,10 +36,10 @@ class Coordinator:
         self._current_annealed_prob = 1.0
         self._train_data = None
         # self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=.50)
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=.50)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0007, epsilon=1e-5, clipnorm=.50)
 
         # PPO related variables
-        self._clip_range = .2
+        self._clip_range = .1
  
     # Annealing entropy to encourage convergence later: 1.0 to 0.01
     def _current_entropy(self):
@@ -115,7 +115,7 @@ class Coordinator:
         
         # Calculate and then mean-std normalize advantages
         advantages = rewards - tf.squeeze(values)
-        # advantages = self._normalize(advantages)
+        advantages = self._normalize(advantages)
 
         old_logits, _, old_values = self.old_gradients_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32), keep_p=prob)
 

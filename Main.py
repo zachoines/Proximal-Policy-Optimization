@@ -53,9 +53,11 @@ if gpus:
 # Environments to run
 env_1 = 'MsPacman-ram-v0'
 env_2 = "Breakout-ram-v0"
-
-# env_names = [env_1]
-env_names = [env_1, env_1, env_1, env_1]
+env_3 = "Pong-ramDeterministic-v4"
+env_4 = "MsPacman-ramDeterministic-v4"
+env_names = [env_4, env_4, env_4, env_4, env_4, env_4]
+# env_names = [env_1, env_1, env_1, env_1, env_1, env_1]
+# env_names = [env_4]
 
 # Configuration
 current_dir = os.getcwd()
