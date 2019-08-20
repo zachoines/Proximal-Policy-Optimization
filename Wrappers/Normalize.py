@@ -15,7 +15,7 @@ class Normalize(Wrapper):
         observation, reward, done, info = self.env.step(action)
         
         # Punish and discourage terminal states or info['ale.lives'] < 3
-        if done:
+        if done or info['ale.lives'] < 3:
             reward += -1.0
             done = True
 

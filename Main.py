@@ -55,7 +55,7 @@ env_1 = 'MsPacman-ram-v0'
 env_2 = "Breakout-ram-v0"
 env_3 = "Pong-ramDeterministic-v4"
 env_4 = "MsPacman-ramDeterministic-v4"
-env_names = [env_4, env_4, env_4, env_4, env_4, env_4]
+env_names = [env_4, env_4, env_4, env_4]
 # env_names = [env_1, env_1, env_1, env_1, env_1, env_1]
 # env_names = [env_4]
 
@@ -67,12 +67,12 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 16
+batch_size = 32
 batches_per_epoch = 256
 num_epocs = 512 * 10
 gamma = .99
 learning_rate = 7e-4
-anneling_steps = num_epocs * batch_size
+anneling_steps = num_epocs * batch_size * 2
 
 # Make the super mario gym environments and apply wrappers
 envs = []
