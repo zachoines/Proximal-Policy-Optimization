@@ -57,7 +57,7 @@ class Worker():
 
                 # temperature=(1 - keep_prob) * 10
                 # , exploration="Epsilon_greedy"
-                action = self.action_select(logits, exploration="Epsilon_greedy", temperature=(1 - keep_prob))
+                action = self.action_select(logits, temperature=(1 - keep_prob))
                 s_t, reward, d, stuff = self.env.step(action)
                 self._done = d
 
@@ -119,5 +119,5 @@ class Worker():
         else:
 
             noise = tf.random.uniform(dist.shape)
-            return tf.argmax(dist - tf.math.log(-tf.math.log(noise)))
+            return tf.argmax(dist - tf.math.log(-tf.math.log(noise))).numpy()
 

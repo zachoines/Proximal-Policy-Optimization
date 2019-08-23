@@ -5,10 +5,6 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.backend as k
 
-# Reference articles
-# https://pdfs.semanticscholar.org/65e6/eca1094463448418a503a793d7dc22c1460b.pdf
-# https://arxiv.org/pdf/1707.06347.pdf
-
 class AnnealedDropout(tf.keras.layers.Layer):
     def __init__(self, rate=0.0, seed=1, training=True):
         super(AnnealedDropout, self).__init__()
@@ -36,7 +32,7 @@ class AC_Model(tf.keras.Model):
         self.training = is_training
 
         # Dicounting hyperparams for loss functions
-        self.entropy_coef = 0.1
+        self.entropy_coef = 0.01
         self.value_function_coeff = 0.50
         self.max_grad_norm = .50
         self.learning_rate = 7e-4
@@ -46,7 +42,7 @@ class AC_Model(tf.keras.Model):
         self.hiddenLayer1 = tf.keras.layers.Dense(
             128,
             activation="relu",
-            kernel_initializer=tf.initializers.lecun_uniform(),
+            kernel_initializer=tf.initializers.orthogonal(2),
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer1", 
             use_bias=True,
@@ -56,7 +52,7 @@ class AC_Model(tf.keras.Model):
         self.hiddenLayer2 = tf.keras.layers.Dense(
             128,
             activation="relu",
-            kernel_initializer=tf.initializers.lecun_uniform(),
+            kernel_initializer=tf.initializers.orthogonal(2),
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer2", 
             use_bias=True,
@@ -66,7 +62,7 @@ class AC_Model(tf.keras.Model):
         self.hiddenLayer3 = tf.keras.layers.Dense(
             128,
             activation="relu",
-            kernel_initializer=tf.initializers.lecun_uniform(),
+            kernel_initializer=tf.initializers.orthogonal(2),
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             name="hidden_layer3", 
             use_bias=True,
@@ -104,15 +100,15 @@ class AC_Model(tf.keras.Model):
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
             activation='linear',
             name="value_layer",
-            use_bias=False,
+            use_bias=True,
             trainable=is_training )
    
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            kernel_initializer=tf.keras.initializers.orthogonal(0.1),
+            kernel_initializer=tf.keras.initializers.orthogonal(.01),
             # kernel_regularizer=keras.regularizers.l2(l=0.01),
-            use_bias=False,
+            use_bias=True,
             name="policy_layer", trainable=is_training )
 
     def call(self, input_s, keep_p=0.0):
@@ -143,13 +139,13 @@ class AC_Model(tf.keras.Model):
     
     # Makes a step in the environment
     def step(self, observation, keep_p=0.0):
-        softmax, logits, value = self.call(observation, keep_p=keep_p)
+        logits, softmax, value = self.call(observation, keep_p=keep_p)
         return logits.numpy(), softmax.numpy(), tf.squeeze(value).numpy()
 
     # Returns the critic estimation of the current state value
     def value_function(self, observation, keep_p):
-        action_dist, softmax, value = self.call(observation, keep_p)
-        return tf.squeeze(value).numpy()[0]
+        _, _, value = self.call(observation, keep_p)
+        return tf.squeeze(value).numpy()
 
     def save_model_weights(self): 
         try:
@@ -164,6 +160,7 @@ class AC_Model(tf.keras.Model):
         current_dir = os.getcwd()
         model_save_path = current_dir + '\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
+    
     # Turn logits to softmax and calculate entropy
     def logits_entropy(self, logits):
         a0 = logits - tf.reduce_max(logits, 1, keepdims=True)

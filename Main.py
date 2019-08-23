@@ -55,7 +55,8 @@ env_1 = 'MsPacman-ram-v0'
 env_2 = "Breakout-ram-v0"
 env_3 = "Pong-ramDeterministic-v4"
 env_4 = "MsPacman-ramDeterministic-v4"
-env_names = [env_4, env_4, env_4, env_4]
+env_5 = "CartPole-v0"
+env_names = [env_5, env_5, env_5, env_5, env_5]
 # env_names = [env_1, env_1, env_1, env_1, env_1, env_1]
 # env_names = [env_4]
 
@@ -67,7 +68,7 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 32
+batch_size = 128
 batches_per_epoch = 256
 num_epocs = 512 * 10
 gamma = .99
@@ -106,11 +107,9 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
 # Init Global and Local networks. Generate Weights for them as well.
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-Global_Model(tf.convert_to_tensor(np.random.random((1, 128))))
+Global_Model(tf.convert_to_tensor(np.random.random((1, NUM_STATE[0]))))
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-step_model(tf.convert_to_tensor(np.random.random((1, 128))))
-old_gradient_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-old_gradient_model(tf.convert_to_tensor(np.random.random((1, 128))))
+step_model(tf.convert_to_tensor(np.random.random((1, NUM_STATE[0]))))
 
 
 # Load model if exists
@@ -122,7 +121,6 @@ else:
             
             Global_Model.load_model_weights()
             step_model.load_model_weights()
-            old_gradient_model.load_model_weights()
 
             for env in envs:
                 workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
@@ -139,7 +137,7 @@ else:
         print("ERROR: There was an issue loading the model!")
         raise
 
-coordinator = Coordinator(Global_Model, step_model, old_gradient_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
+coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
 
 # Train and save
 if coordinator.run():
