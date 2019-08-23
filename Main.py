@@ -8,10 +8,9 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-
-import tensorflow.keras as keras
-import tensorflow.keras.backend as K
 from tensorflow.python.client import device_lib
+
+from Wrappers.preprocess import FrameSkip
 
 
 print("GPU Available: ", tf.test.is_gpu_available())
@@ -20,8 +19,10 @@ print("GPU Available: ", tf.test.is_gpu_available())
 # Importing the packages for OpenAI
 import gym
 
+
 # Locally defined classes
 from Wrappers import preprocess
+from Wrappers.Normalize import Normalize
 from Wrappers.Monitor import Monitor
 from Wrappers.Stats import Stats, Collector, AsynchronousPlot
 from Worker import Worker, WorkerThread
@@ -48,13 +49,13 @@ if gpus:
 
 # Environments to run
 env_1 = 'BreakoutDeterministic-v4'
-env_2 = 'Breakout-v4'
+env_2 = 'Breakout-v0'
 env_3 = 'BreakoutDeterministic-v0'
 env_4 = 'MsPacmanDeterministic-v4'
 env_5 = 'MsPacman-v0'
 
 
-env_names = [env_5, env_4, env_5]
+env_names = [env_2, env_2, env_2, env_2]
 # env_names = [env_1, env_2]
 
 # Configuration
@@ -65,21 +66,21 @@ record = True
 
 # Enviromental vars
 num_envs = len(env_names)
-batch_size = 32
+batch_size = 128
 batches_per_epoch = sys.maxsize
-# batches_per_epoch = 1024
-num_epocs = 512 * 5
+num_epocs = 512 * 10
 gamma = .99
 learning_rate = 7e-4
-anneling_steps = 512 ** 2
+anneling_steps = num_epocs * batch_size * 2
 
 # Make the super mario gym environments and apply wrappers
 envs = []
 collector = Collector()
-collector.set_dimensions(["CMA", "LOSS", "LENGTH"])
+collector.set_dimensions(["CMA", "EMA", "SMA", "LENGTH", "LOSS", 'TOTAL_EPISODE_REWARDS'])
 plot = AsynchronousPlot(collector, live=False)
 
 # Apply env wrappers
+counter = 0
 for env in env_names:
     env = gym.make(env) 
     # env = preprocess.FrameSkip(env, 4)
@@ -89,10 +90,9 @@ for env in env_names:
     env = Stats(env, collector)
     envs.append(env)
 
-(HEIGHT, WIDTH, CHANNELS) = envs[0].observation_space.shape
+NUM_STATE = envs[0].observation_space.shape
 NUM_ACTIONS = envs[0].env.action_space.n
 ACTION_SPACE = envs[0].env.action_space
-NUM_STATE = (1, HEIGHT, WIDTH, CHANNELS)  
 
 if not os.path.exists(video_save_path):
     os.makedirs(video_save_path)
@@ -106,14 +106,11 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
 # Init Global and Local networks. Generate Weights for them as well.
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-(_, hight, width, stack) = NUM_STATE
-Global_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
+Global_Model(tf.convert_to_tensor(np.random.random((1, NUM_STATE))))
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-step_model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
+step_model(tf.convert_to_tensor(np.random.random((1, NUM_STATE))))
 
-# Model used for holding old network params in PPO
-Old_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-Old_Model(tf.convert_to_tensor(np.random.random((1, hight, width*stack, 1)), dtype=tf.float32))
+
 
 
 # Load model if exists
@@ -125,7 +122,6 @@ else:
             
             Global_Model.load_model_weights()
             step_model.load_model_weights()
-            Old_Model.load_model_weights()
             for env in envs:
                 workers.append(Worker(step_model, env, batch_size=batch_size, render=False))
             
@@ -141,7 +137,7 @@ else:
         print("ERROR: There was an issue loading the model!")
         raise
 
-coordinator = Coordinator(Global_Model, step_model, Old_Model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
+coordinator = Coordinator(Global_Model, step_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps)
 
 # Train and save
 results = coordinator.run()

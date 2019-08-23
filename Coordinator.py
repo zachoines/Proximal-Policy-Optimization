@@ -15,8 +15,8 @@ from Worker import Worker, WorkerThread
 
 
 class Coordinator:
-    def __init__(self, model, local_model, old_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
-        self.global_model = model
+    def __init__(self, global_model, local_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
+        self.global_model = global_model
         self.local_model = local_model
         self.model_save_path = model_save_path
         self.workers = workers
@@ -25,6 +25,7 @@ class Coordinator:
         self.batches_per_epoch = batches_per_epoch
         self.batch_size = batch_size
         self.gamma = gamma
+        self._last_batch_loss = 0
         self.plot = plot   
         self.total_steps = 0
         self.anneling_steps = anneling_steps
@@ -32,28 +33,44 @@ class Coordinator:
         
         # Private variables
         self._currentE = 1.0
+        self.current_prob = 0.0
+        self.anneling_steps = anneling_steps
         self._current_annealed_prob = 1.0
         self._train_data = None
-        self._total_loss = 0
+        # self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=.50)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0007, epsilon=1e-5, clipnorm=.50)
 
-        # PPO related variables
-        self._old_gradients_model = old_model
+        # PPO and training related variables
+        self._num_training_sessions_on_sample_data = 8
+        self._learning_rate = 0.0007
         self._clip_range = .2
-
  
     # Annealing entropy to encourage convergence later: 1.0 to 0.01
     def _current_entropy(self):
-        startE = 1.0
+        startE = .30
         endE = 0.01 
 
         # Final chance of random action
         stepDrop = (startE - endE) / self.anneling_steps
+
+        if self.total_steps % 256 == 0:
+            print("Current entropy is: " + str(self._current_annealed_prob))
 
         if self._current_annealed_prob >= endE:
             self._current_annealed_prob -= stepDrop
             return self._current_annealed_prob
         else:
             return 0.01 
+    
+    # STD Mean normalization
+    def _normalize(self, x):
+        norm_x = (x - x.mean()) / (x.std() + 1e-8)
+        # norm_x = (x - tf.reduce_mean(x)) / tf.math.reduce_std(x)
+        return norm_x
+
+    def _clip_by_range(self, x, clip_range=[-50.0, 50.0]):
+        clipped_x = tf.clip_by_value(x, min(clip_range), max(clip_range))
+        return clipped_x
             
     # Annealing temperature scales from .1 to 1.0
     def _keep_prob(self):
@@ -65,9 +82,17 @@ class Coordinator:
         stepDrop = (startE - endE) / self.anneling_steps
 
         if self._currentE >= endE and total_steps >= pre_train_steps:
+            
             self._currentE -= stepDrop
-            return keep_per()
+            p = keep_per()
+
+            if self.total_steps % 256 == 0:
+                print("Current temp is: " + str(p))
+            
+            return p
+
         else:
+            print("Anneling Finished")
             return 1.0      
     
     # Convert numbered actions into one-hot formate [0 , 0, 1, 0, 0]
@@ -87,56 +112,76 @@ class Coordinator:
        
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self):
+        prob = self.current_prob
+        self.sampled_states, self.sampled_actions, self.sampled_rewards, self.sampled_advantages, self.sampled_values, self.sampled_logits = self._train_data
+        self.sampled_advantages = self.sampled_advantages
+        self.sampled_actions_hot = tf.one_hot(self.sampled_actions, self.global_model.num_actions, dtype=tf.float64)
+        self.sampled_rewards = tf.Variable(self.sampled_rewards, name="rewards", dtype=tf.float64)
+
+
+        logits, _, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(self.sampled_states, axis=1)), dtype=tf.float64), keep_p=prob)
+        values = tf.squeeze(values)
         
-        batch_states, batch_actions, batch_rewards, batch_returns = self._train_data
-        actions = tf.Variable(batch_actions, name="Actions", trainable=False)
-        rewards = tf.Variable(batch_rewards, name="Rewards", dtype=tf.float32, trainable=False)
-        actions_hot = tf.one_hot(actions, self.global_model.num_actions, dtype=tf.float32)
-        logits, action_dist, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
+        # Policy Loss and Entropy
+        self.sampled_neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=self.sampled_actions_hot, logits=self.sampled_logits) 
+        neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=self.sampled_actions_hot, logits=logits) 
+        ratio = tf.exp(self.sampled_neg_log_prob - neg_log_prob)
+        clipped_ratio = tf.clip_by_value(ratio, 1.0 - self._clip_range, 1.0 + self._clip_range)
+        self.policy_loss = tf.reduce_mean(tf.minimum(ratio * self.sampled_advantages, clipped_ratio * self.sampled_advantages))
+        self.entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
         
-        # Calculate and normalize Advantages
-        advantages = rewards - values
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        advantages = tf.Variable(advantages, name="Advantages", dtype=tf.float32, trainable=False)
-
-        # PPO Version # 1
-        old_logits, _, old_values = self._old_gradients_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(batch_states, axis=1)), dtype=tf.float32))
-
-        # Entropy bonus
-        entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
-
-        # Value loss
-        clipped_values = old_values + tf.clip_by_value(values - old_values, - self._clip_range, self._clip_range)
-        value_loss_unclipped = tf.square(values - rewards)
-        value_loss_clipped = tf.square(clipped_values - rewards)
-        value_loss = .5 * tf.reduce_mean(tf.maximum(value_loss_unclipped, value_loss_clipped))
-
-        # Policy loss
-        old_neg_log_prob = neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(labels=actions_hot, logits=old_logits) 
-        policy_params_ratio = tf.exp(old_neg_log_prob - neg_log_prob)
-        policy_loss_1 = -advantages * policy_params_ratio
-        policy_loss_2 = -advantages * tf.clip_by_value(policy_params_ratio, 1.0 - self._clip_range, 1.0 + self._clip_range)
-        policy_loss = tf.reduce_mean(tf.maximum(policy_loss_1, policy_loss_2))
-
-        # Final total loss
-        self._total_loss = total_loss = policy_loss - entropy * self.global_model.entropy_coef + value_loss * self.global_model.value_function_coeff
-
-        # Save the new 'old' policy for the next iteration
-        self._old_gradients_model.set_weights(self.global_model.get_weights())
+        # Value Loss
+        clipped_values = tf.add(self.sampled_values, tf.clip_by_value(values - self.sampled_values, -self._clip_range, self._clip_range))
+        self.value_loss = tf.multiply(0.5, tf.reduce_mean(tf.maximum(tf.square(values - self.sampled_rewards), tf.square(clipped_values - self.sampled_rewards))))
+        self._last_batch_loss = total_loss = -(self.policy_loss - 0.5 * self.value_loss + 0.01 * self.entropy)
 
         return total_loss
 
+      
     def train(self, train_data):
+
+        (all_states, all_actions, all_returns, all_advantages, all_values, all_logits) = train_data
         
-        # Store training data for loss calculation
-        self._train_data = train_data
+        
+        sample_size = len(all_states)   # Sample size = batch_size * num_workers
+        mini_sample_size = sample_size // 4
+        indexes = np.arange(sample_size)
 
-        # Apply Gradients
-        params = self.global_model.trainable_variables
-        optimizer = tf.keras.optimizers.Adam(learning_rate=7e-4, epsilon=1e-5, clipnorm=.5)  # custom learning rate:7e-4
-        optimizer.minimize(self.loss, var_list=params)
+        if mini_sample_size == 0:
+            self._train_data = train_data
 
-        self.collect_stats("LOSS", self._total_loss.numpy())
+            params = self.global_model.trainable_variables
+            self.optimizer.minimize(self.loss, var_list=params)
+
+            self.collect_stats("LOSS", self._last_batch_loss.numpy())
+            return
+            
+        # Here we will take slices of all sample data from the old policy and train the global network
+        for _ in range(self._num_training_sessions_on_sample_data): 
+            
+            np.random.shuffle(indexes)
+            
+            for start_index in range(0, sample_size, mini_sample_size):
+
+                end_index = start_index + mini_sample_size
+                mini_sample_indexes = indexes[start_index: end_index]
+                
+                mini_sample = ([], [], [], [], [], [])
+                for index in mini_sample_indexes:
+                    mini_sample[0].append(all_states[index])
+                    mini_sample[1].append(all_actions[index])
+                    mini_sample[2].append(all_returns[index])
+                    mini_sample[3].append(all_advantages[index])
+                    mini_sample[4].append(all_values[index])
+                    mini_sample[5].append(all_logits[index])
+                
+                self._train_data = mini_sample
+
+                # Apply Gradients
+                params = self.global_model.trainable_variables
+                self.optimizer.minimize(self.loss, var_list=params)
+
+                self.collect_stats("LOSS", self._last_batch_loss.numpy())
 
     # request access to collector and record stats
     def collect_stats(self, key, value):
@@ -145,11 +190,22 @@ class Coordinator:
         self.plot.stop_request()
         self.plot.collector.collect(key, value)
         self.plot.continue_request()
+    
+    def calculate_advantages(self, dones, rewards, values, bootstrap):
+        advantages = np.zeros((len(rewards)))
+        last_advantage = 0
+        last_value = bootstrap
+        for t in reversed(range(len(rewards))):
+            mask = 1.0 - dones[t]
+            last_value = last_value * mask
+            last_advantage = last_advantage * mask
+            delta = rewards[t] + self.gamma * last_value - values[t]
+            last_advantage = delta + self.gamma * 0.95 * last_advantage
+            advantages[t] = last_advantage
+            last_value = values[t]
 
+        return advantages
 
-    # Produces reversed list of discounted values
-    def discount(self, x, gamma):
-        return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
 
     # Produces reversed list of bootstrapped discounted r
     def rewards_discounted(self, rewards, gamma, bootstrap):
@@ -199,10 +255,15 @@ class Coordinator:
                 self.plot.continue_request()
         
 
-                # loop for generating a training session a batch at a time
+                # loop for generating samples of data to train on the global_network
                 for mb in range(self.batches_per_epoch):
                     
-                    self.total_steps += 1   
+                    self.total_steps += 1  
+
+                    # TODO: implement this
+                    # progress = update / self.total_steps
+                    # self.learning_rate = 2.5e-4 * (1 - progress)
+                    # self.clip_range = 0.1 * (1 - progress) 
                     
                     # Copy global network over to local network
                     self.refresh_local_network_params()
@@ -210,6 +271,7 @@ class Coordinator:
                     # Send workers out to threads
                     threads = []
                     prob = self._keep_prob()
+                    self.current_prob = prob
                     for worker in self.workers:
                         threads.append(WorkerThread(target=worker.run, args=([prob])))
 
@@ -229,6 +291,8 @@ class Coordinator:
                     all_states = np.array([])
                     all_actions = np.array([])
                     all_values = np.array([])
+                    all_logits = np.array([])
+                    all_dones = np.array([])
                     all_advantages = np.array([])
                     all_returns = np.array([])
 
@@ -240,9 +304,9 @@ class Coordinator:
                         batch_states = []
                         batch_actions = []
                         batch_values = []
+                        batch_logits = []
                         batch_advantages = []
                         batch_dones = []
-                        batch_returns = []
 
                         mb = batches[env]
                         
@@ -262,8 +326,9 @@ class Coordinator:
                             batch_rewards.append(reward)
                             batch_observations.append(observation)
                             batch_states.append(state)
-                            batch_dones.append(done)
                             batch_values.append(value)
+                            batch_logits.append(logits)
+                            batch_dones.append(done)
 
                         
                         # If we reached the end of an episode or if we filled a batch without reaching termination of episode
@@ -276,7 +341,9 @@ class Coordinator:
                         # δ_t == R + γ * V(S_t') - V(S_t): 
                         
                         # Or simply... 
-                        # δ_t == G_t - V:      
+                        # δ_t == G_t - V: 
+                        # 
+                        boot_strap = 0.0    
 
                         # Generalized advantage calculation from OpenAI Baselines
                         # steps = len(batch_rewards)
@@ -288,35 +355,21 @@ class Coordinator:
                         boot_strap = 0
                         
                         if (not done):
-                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), 1.0)
+                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), keep_p=self.current_prob)
 
-                        # for t in reversed(range(steps)):
-                        #     if t == steps - 1:
-                        #         nextnonterminal = 1.0 - int(done)
-                        #         nextvalues = boot_strap
-                        #     else:
-                        #         nextnonterminal = 1.0 - int(batch_dones[t+1])
-                        #         nextvalues = batch_values[t+1]
-                        #     delta = batch_rewards[t] + self.gamma * nextvalues * int(nextnonterminal) - batch_values[t]
-                        #     advantages[t] = lastgaelam = delta + self.gamma * lam * nextnonterminal * lastgaelam
-                        # batch_returns = advantages + batch_values
-                           
-                        # A more simple and straightforward advantage calculation
-                        discounted_bootstrapped_rewards = self.rewards_discounted(batch_rewards, self.gamma, boot_strap)
-                        batch_rewards = discounted_bootstrapped_rewards
-                        batch_advantages = list(set(batch_rewards) - set(batch_values))
+                        batch_advantages = self.calculate_advantages(batch_dones, batch_rewards, batch_values, boot_strap)
 
+                        all_dones = np.concatenate((all_dones, batch_dones), 0) if all_dones.size else np.array(batch_dones)
                         all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-                        all_returns = np.concatenate((all_returns, batch_advantages), 0) if all_returns.size else np.array(batch_returns)
                         all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
+                        all_logits = np.concatenate((all_logits, batch_logits), 0) if all_logits.size else np.array(batch_logits)
                         all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
                         all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
                         all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
 
-
-                            
+                           
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss
-                    data = (all_states, all_actions, all_rewards, all_returns)
+                    data = (all_states, all_actions, all_values + all_advantages, all_advantages, all_values, all_logits)
 
                     if len(data[0]) != 0:
                         self.train(data) 

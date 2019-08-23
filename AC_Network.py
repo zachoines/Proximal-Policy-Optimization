@@ -5,6 +5,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.backend as k
 
+
 class AC_Model(tf.keras.Model):
     def __init__(self, input_s, num_actions, is_training=True):
         super(AC_Model, self).__init__()
@@ -20,11 +21,7 @@ class AC_Model(tf.keras.Model):
         self.learning_rate = 7e-4
         self.alpha = 0.99
         self.epsilon = 1e-5
-        
-        # Model variables
-        (_, hight, width, stack) = input_s
-        self.input_def = tf.keras.layers.Input(shape=(hight, width*stack, 1), name="input_layer", dtype=tf.float32)
-
+    
         # Define Convolution 1
         self.conv1 = tf.keras.layers.Conv2D(
             filters=32,
@@ -71,18 +68,24 @@ class AC_Model(tf.keras.Model):
             name="hidden_layer", 
             trainable=is_training )
 
+        # self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dtype=tf.float64)
+
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0),
+            kernel_initializer=tf.keras.initializers.orthogonal(1.0),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
             activation='linear',
             name="value_layer",
+            use_bias=True,
             trainable=is_training )
    
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            kernel_initializer=keras.initializers.Orthogonal(gain= 0.01),
+            kernel_initializer=tf.keras.initializers.orthogonal(.01),
+            # kernel_regularizer=keras.regularizers.l2(l=0.01),
+            use_bias=True,
             name="policy_layer", trainable=is_training )
 
         # Batch regularization
@@ -126,17 +129,17 @@ class AC_Model(tf.keras.Model):
         logits = self._policy(hidden_out)
         action_dist = tf.nn.softmax(logits)
 
-        return logits, action_dist, tf.squeeze(value)
+        return logits, action_dist, value
     
     # Makes a step in the environment
-    def step(self, observation, keep_per):
-        softmax, logits, value = self.call(observation, keep_per)
-        return logits.numpy(), softmax.numpy(), value.numpy()
+    def step(self, observation, keep_p=0.0):
+        logits, softmax, value = self.call(observation, keep_p=keep_p)
+        return logits.numpy(), softmax.numpy(), tf.squeeze(value).numpy()
 
     # Returns the critic estimation of the current state value
-    def value_function(self, observation):
-        action_dist, softmax, value = self.call(observation, 1.0)
-        return value.numpy()[0]
+    def value_function(self, observation, keep_p):
+        _, _, value = self.call(observation, keep_p)
+        return tf.squeeze(value).numpy()
 
     def save_model_weights(self): 
         try:
@@ -144,14 +147,14 @@ class AC_Model(tf.keras.Model):
             model_save_path = current_dir + '\Model\checkpoint.tf'
             self.save_weights(model_save_path, save_format='tf')
         except:
-            print("Issue saving Model weights")
-        
+            print("ERROR: There was an issue saving the model weights.")
+            pass
 
     def load_model_weights(self):
         current_dir = os.getcwd()
         model_save_path = current_dir + '\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
-
+    
     # Turn logits to softmax and calculate entropy
     def logits_entropy(self, logits):
         a0 = logits - tf.reduce_max(logits, 1, keepdims=True)
@@ -163,3 +166,6 @@ class AC_Model(tf.keras.Model):
     # standard entropy
     def softmax_entropy(self, p0):
         return - tf.reduce_sum(p0 * tf.math.log(p0 + 1e-16), axis=1)
+
+    
+  

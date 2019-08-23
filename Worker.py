@@ -22,7 +22,7 @@ class WorkerThread(Thread):
 # Class to represent a worker in an environment. Call run() to generate a batch. 
 class Worker():
 
-    def __init__(self, network, env, batch_size = 32, render = True, exploration="bayesian"):
+    def __init__(self, network, env, batch_size = 32, render = True, exploration="Epsilon_greedy"):
 
         # Epsisode collected variables
         self._batch_buffer = []
@@ -42,7 +42,7 @@ class Worker():
     def reset(self):
         self._batch_buffer = []
         self._done = False
-        [self.s] = self.env.reset()
+        self.s = self.env.reset()
 
 
     # Generate an batch worth of observations. Return nothing.
@@ -53,12 +53,15 @@ class Worker():
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
                 self.total_steps += 1
-                [logits], [action_dist] , value = self.network.step(np.expand_dims(self.s, axis=0), keep_prob)
-                action = self.action_select(logits, exploration="boltzmann")
-                [s_t], reward, d, _ = self.env.step(action)
+                [logits], [action_dist], value = self.network.step(np.expand_dims(self.s, axis=0), keep_p=keep_prob)
+
+                # temperature=(1 - keep_prob) * 10
+                # , exploration="Epsilon_greedy"
+                action = self.action_select(logits, temperature=(1 - keep_prob))
+                s_t, reward, d, stuff = self.env.step(action)
                 self._done = d
 
-                batch.append((self.s, s_t , reward, value, action, d, logits.tolist()))
+                batch.append((self.s , s_t , reward, value, action, d, logits.tolist()))
                 self.s = s_t
 
                 # render the env
@@ -82,17 +85,20 @@ class Worker():
             
 
     # Boltzmann Softmax style action selection
-    def action_select(self, dist, exploration="Epsilon_greedy", temperature=1.0, epsilon=.005):
+    def action_select(self, dist, exploration="", temperature=1.0, epsilon=.2):
         
-
+        #  / ((temperature) * 10)
         if exploration == "boltzmann":        
             
-            exp_preds = np.exp((dist + 1e-16) * temperature ).astype("float64")
-            preds = exp_preds / np.sum(exp_preds)
-            
+            dist = tf.nn.softmax(dist / ((temperature) * 5)).numpy()
+            # a = np.random.choice(dist,p=dist)
+            # probs = dist == a
+            # a = np.argmax(probs)
+
             [probas] = np.random.multinomial(1, dist, 1)
             a = np.argmax(probas)
             return a
+
         
         # Use with large dropout annealed over time
         elif exploration == "bayesian":
@@ -102,15 +108,16 @@ class Worker():
         elif exploration == "Epsilon_greedy":
             
             # Scale epsilon down to near 0.0 by multiplying .9 ... .1
-            if random.random() < (epsilon):
+            if random.random() < (epsilon * temperature):
                 
                 return random.randint(0, self.NUM_ACTIONS-1)
 
             else:
-
                 dist = tf.nn.softmax(dist).numpy() 
-                a = np.random.choice(dist,p=dist)
-                probs = dist == a
-                a = np.argmax(probs)
+                a = np.argmax(dist)
                 return a
+        else:
+
+            noise = tf.random.uniform(dist.shape)
+            return tf.argmax(dist - tf.math.log(-tf.math.log(noise))).numpy()
 
