@@ -56,7 +56,6 @@ env_5 = 'MsPacman-v0'
 
 
 env_names = [env_2, env_2, env_2, env_2]
-# env_names = [env_1, env_2]
 
 # Configuration
 current_dir = os.getcwd()
@@ -106,9 +105,9 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
 # Init Global and Local networks. Generate Weights for them as well.
 Global_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-Global_Model(tf.convert_to_tensor(np.random.random((1, NUM_STATE))))
+Global_Model(tf.convert_to_tensor(np.random.random((1, *NUM_STATE)), dtype='float64'))
 step_model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=True)
-step_model(tf.convert_to_tensor(np.random.random((1, NUM_STATE))))
+step_model(tf.convert_to_tensor(np.random.random((1, *NUM_STATE)), dtype='float64'))
 
 
 

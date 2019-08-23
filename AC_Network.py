@@ -2,9 +2,6 @@ import os
 import numpy as np
 
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.backend as k
-
 
 class AC_Model(tf.keras.Model):
     def __init__(self, input_s, num_actions, is_training=True):
@@ -27,11 +24,12 @@ class AC_Model(tf.keras.Model):
             filters=32,
             kernel_size=[8, 8],
             strides=(4, 4),
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=1.0),
             padding="valid",
             activation="relu", 
             name="conv1",
-            trainable=is_training )
+            trainable=is_training, 
+            dtype='float64' )
         
         # self.maxPool1 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="maxPool1")
 
@@ -40,11 +38,12 @@ class AC_Model(tf.keras.Model):
             filters=64,
             kernel_size=[4, 4],
             strides=(2, 2),
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=1.0),
             padding="valid",
             activation="relu",
             name="conv2", 
-            trainable=is_training)
+            trainable=is_training, 
+            dtype='float64')
 
         # self.maxPool2 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="maxPool2", trainable=is_training )
         
@@ -53,22 +52,24 @@ class AC_Model(tf.keras.Model):
             filters=64,
             kernel_size=[3, 3],
             strides=(1, 1),
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0, seed=1),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=1.0, seed=1),
             padding="valid",
             activation="relu",
             name="conv3",
-            trainable=is_training )
+            trainable=is_training,
+            dtype='float64' )
 
         # self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name ="maxPool3", trainable=is_training )
         self.flattened = tf.keras.layers.Flatten(name="flattening_layer", trainable=is_training )
         self.hiddenLayer = tf.keras.layers.Dense(
             512,
             activation="relu",
-            kernel_initializer=keras.initializers.Orthogonal(gain=1.0),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=1.0),
             name="hidden_layer", 
-            trainable=is_training )
+            trainable=is_training, 
+            dtype='float64' )
 
-        # self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dtype=tf.float64)
+        # self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dtype='float64')
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(

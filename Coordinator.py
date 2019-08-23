@@ -2,17 +2,13 @@ import os
 import copy
 
 import tensorflow as tf
-import tensorflow.keras as k
 import numpy as np
 import cv2
 import scipy.signal
-import tensorflow.keras as keras
-import tensorflow.keras.backend as k
 
 # import local classes
 from AC_Network import AC_Model
 from Worker import Worker, WorkerThread
-
 
 class Coordinator:
     def __init__(self, global_model, local_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
@@ -119,7 +115,7 @@ class Coordinator:
         self.sampled_rewards = tf.Variable(self.sampled_rewards, name="rewards", dtype=tf.float64)
 
 
-        logits, _, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(self.sampled_states, axis=1)), dtype=tf.float64), keep_p=prob)
+        logits, _, values = self.global_model.call(tf.convert_to_tensor(np.vstack(self.sampled_states), dtype=tf.float64), keep_p=prob)
         values = tf.squeeze(values)
         
         # Policy Loss and Entropy
@@ -294,7 +290,6 @@ class Coordinator:
                     all_logits = np.array([])
                     all_dones = np.array([])
                     all_advantages = np.array([])
-                    all_returns = np.array([])
 
                     # Calculate discounted rewards for each environment
                     for env in range(self.num_envs):
@@ -344,18 +339,9 @@ class Coordinator:
                         # δ_t == G_t - V: 
                         # 
                         boot_strap = 0.0    
-
-                        # Generalized advantage calculation from OpenAI Baselines
-                        # steps = len(batch_rewards)
-                        # mb_returns = np.zeros_like(batch_rewards)
-                        # advantages = np.zeros_like(batch_rewards)
-                        # nextvalues = []
-                        # lastgaelam = 0
-                        # lam = 0.95
-                        boot_strap = 0
                         
                         if (not done):
-                            _, _, boot_strap = self.local_model.step(np.expand_dims(observation, axis=0), keep_p=self.current_prob)
+                            _, _, boot_strap = self.local_model.step(observation, keep_p=self.current_prob)
 
                         batch_advantages = self.calculate_advantages(batch_dones, batch_rewards, batch_values, boot_strap)
 

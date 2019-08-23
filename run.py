@@ -36,7 +36,6 @@ network_params = (NUM_STATE, batch_size, NUM_ACTIONS, ACTION_SPACE)
 
 # Init Global and Local networks. Generate Weights for them as well.
 Test_Model = AC_Model(NUM_STATE, NUM_ACTIONS, is_training=False)
-# Test_Model(tf.convert_to_tensor(np.random.random((1, 128))))
 
 # Generate an batch worth of observations. Return nothing.
 def run(num_steps, env, network, render):
