@@ -38,7 +38,7 @@ class Coordinator:
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0007, epsilon=1e-5, clipnorm=.50)
 
         # PPO and training related variables
-        self._num_training_sessions_on_sample_data = 4
+        self._num_training_sessions_on_sample_data = 8
         self._learning_rate = 0.0007
         self._clip_range = .2
  
@@ -61,8 +61,9 @@ class Coordinator:
     
     # STD Mean normalization
     def _normalize(self, x):
-        norm_x = (x - tf.reduce_mean(x)) / tf.math.reduce_std(x)
-        return norm_x.numpy()
+        norm_x = (x - x.mean()) / (x.std() + 1e-8)
+        # norm_x = (x - tf.reduce_mean(x)) / tf.math.reduce_std(x)
+        return norm_x
 
     def _clip_by_range(self, x, clip_range=[-50.0, 50.0]):
         clipped_x = tf.clip_by_value(x, min(clip_range), max(clip_range))
@@ -112,7 +113,7 @@ class Coordinator:
         self.sampled_states, self.sampled_actions, self.sampled_rewards, self.sampled_advantages, self.sampled_values, self.sampled_logits = self._train_data
         self.sampled_advantages = self.sampled_advantages
         self.sampled_actions_hot = tf.one_hot(self.sampled_actions, self.global_model.num_actions, dtype=tf.float64)
-        self.sampled_rewards = tf.Variable(self.sampled_rewards, name="rewards", dtype=tf.float64, trainable=False)
+        self.sampled_rewards = tf.Variable(self.sampled_rewards, name="rewards", dtype=tf.float64)
 
 
         logits, _, values = self.global_model.call(tf.convert_to_tensor(np.vstack(np.expand_dims(self.sampled_states, axis=1)), dtype=tf.float64), keep_p=prob)
