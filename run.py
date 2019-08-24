@@ -13,7 +13,8 @@ from AC_Network import AC_Model
 
 # Environments to run
 # env = 'MsPacman-ram-v0'
-env = "CartPole-v0"
+env = 'Pong-ram-v0'
+# env = "CartPole-v0"
 # env = "Breakout-ram-v0"
 
 # Configuration
