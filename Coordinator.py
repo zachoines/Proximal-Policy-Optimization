@@ -111,6 +111,8 @@ class Coordinator:
         prob = self.current_prob
         self.sampled_states, self.sampled_actions, self.sampled_rewards, self.sampled_advantages, self.sampled_values, self.sampled_logits = self._train_data
         self.sampled_advantages = self.sampled_advantages
+        # for state in self.sampled_states:
+        #     self.displayImage(state)
         self.sampled_actions_hot = tf.one_hot(self.sampled_actions, self.global_model.num_actions, dtype=tf.float64)
         self.sampled_rewards = tf.Variable(self.sampled_rewards, name="rewards", dtype=tf.float64)
 
@@ -143,7 +145,7 @@ class Coordinator:
         mini_sample_size = sample_size // 4
         indexes = np.arange(sample_size)
 
-        if mini_sample_size == 0:
+        if mini_sample_size == 0: # When we reach end of episode early.
             self._train_data = train_data
 
             params = self.global_model.trainable_variables
@@ -217,7 +219,7 @@ class Coordinator:
 
     # for debugging processed images
     def displayImage(self, img):
-        cv2.imshow('image', img)
+        cv2.imshow('image', np.squeeze(img, axis=0))
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
