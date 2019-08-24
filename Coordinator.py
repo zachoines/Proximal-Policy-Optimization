@@ -1,55 +1,55 @@
 import os
 import copy
-
 import tensorflow as tf
 import numpy as np
 import cv2
 import scipy.signal
 
 # import local classes
-from AC_Network import AC_Model
 from Worker import Worker, WorkerThread
 
 class Coordinator:
-    def __init__(self, global_model, local_model, workers, plot, num_envs, num_epocs, batches_per_epoch, batch_size, gamma, model_save_path, anneling_steps):
-        self.global_model = global_model
-        self.local_model = local_model
-        self.model_save_path = model_save_path
-        self.workers = workers
-        self.num_envs = num_envs
-        self.num_epocs = num_epocs
-        self.batches_per_epoch = batches_per_epoch
-        self.batch_size = batch_size
-        self.gamma = gamma
-        self._last_batch_loss = 0
-        self.plot = plot   
-        self.total_steps = 0
-        self.anneling_steps = anneling_steps
-        self.pre_train_steps = 0
-        
-        # Private variables
-        self._currentE = 1.0
-        self.current_prob = 0.0
-        self.anneling_steps = anneling_steps
-        self._current_annealed_prob = 1.0
-        self._train_data = None
-        # self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=7e-4, clipnorm=.50)
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0007, epsilon=1e-5, clipnorm=.50)
+    def __init__(self, global_model, local_model, workers, plot, model_save_path, config):
+        self._global_model = global_model
+        self._local_model = local_model
+        self._model_save_path = model_save_path
+        self._workers = workers
 
+        self._config = config
+        self._num_envs = self._config['Number of worker threads']
+        self._num_epocs = self._config['Number of global sessions']
+        self._batches_per_epoch = self._config['Max Number of sample batches per environment episode']
+        self._batch_size = self._config['Max steps taken per batch']
+        self._gamma = self._config['Gamma']
+        self._last_batch_loss = 0
+        self._plot = plot   
+        self._total_steps = 0
+        self._anneling_steps = self._config['Anneling_steps']
+        self._pre_train_steps = self._config['Pre training steps']
+            
+        # Annealing variables
+        self._currentE = 1.0
+        self._current_prob = 0.0
+        self._current_annealed_prob = 1.0
+         
         # PPO and training related variables
-        self._num_training_sessions_on_sample_data = 8
-        self._learning_rate = 0.0007
-        self._clip_range = .2
- 
+        self._num_training_sessions_on_sample_data = self._config['Training epochs']
+        self._learning_rate = self._config['Learning rate']
+        self._clip_range = self._config['PPO clip range']
+        self._epsilon = self._config['Epsilon']
+        self._clipnorm =self._config['PPO clip range']
+        self._train_data = None
+        self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm)
+
     # Annealing entropy to encourage convergence later: 1.0 to 0.01
     def _current_entropy(self):
         startE = .30
         endE = 0.01 
 
         # Final chance of random action
-        stepDrop = (startE - endE) / self.anneling_steps
+        stepDrop = (startE - endE) / self._anneling_steps
 
-        if self.total_steps % 256 == 0:
+        if self._total_steps % 256 == 0:
             print("Current entropy is: " + str(self._current_annealed_prob))
 
         if self._current_annealed_prob >= endE:
@@ -57,6 +57,10 @@ class Coordinator:
             return self._current_annealed_prob
         else:
             return 0.01 
+
+    def _update_learning_rate_and_clip(self):
+        self._learning_rate = self._learning_rate * (self._currentE)
+        self._clip_range = self._clip_range * (self._currentE) 
     
     # STD Mean normalization
     def _normalize(self, x):
@@ -70,25 +74,18 @@ class Coordinator:
             
     # Annealing temperature scales from .1 to 1.0
     def _keep_prob(self):
-        keep_per = lambda: (1.0 - self._currentE) + 0.1
+        keep_per = lambda: (1.0 - self._currentE) + 0.01
         startE = 1.0
         endE = 0.1 # Final chance of random action
-        pre_train_steps = self.pre_train_steps # Number of steps used before anneling begins
-        total_steps = self.total_steps # max steps ones can take
-        stepDrop = (startE - endE) / self.anneling_steps
+        pre_train_steps = self._pre_train_steps # Number of steps used before anneling begins
+        total_steps = self._total_steps # max steps ones can take
+        stepDrop = (startE - endE) / self._anneling_steps
 
         if self._currentE >= endE and total_steps >= pre_train_steps:
-            
             self._currentE -= stepDrop
             p = keep_per()
-
-            if self.total_steps % 256 == 0:
-                print("Current temp is: " + str(p))
-            
             return p
-
         else:
-            print("Anneling Finished")
             return 1.0      
     
     # Convert numbered actions into one-hot formate [0 , 0, 1, 0, 0]
@@ -102,22 +99,18 @@ class Coordinator:
         return labels_one_hot
 
     # Used to copy over global variables to local network 
-    def refresh_local_network_params(self):
-        global_weights = self.global_model.get_weights()
-        self.local_model.set_weights(global_weights)
+    def _refresh_local_network_params(self):
+        global_weights = self._global_model.get_weights()
+        self._local_model.set_weights(global_weights)
        
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self):
-        prob = self.current_prob
+        prob = self._current_prob
         self.sampled_states, self.sampled_actions, self.sampled_rewards, self.sampled_advantages, self.sampled_values, self.sampled_logits = self._train_data
         self.sampled_advantages = self.sampled_advantages
-        # for state in self.sampled_states:
-        #     self.displayImage(state)
-        self.sampled_actions_hot = tf.one_hot(self.sampled_actions, self.global_model.num_actions, dtype=tf.float64)
+        self.sampled_actions_hot = tf.one_hot(self.sampled_actions, self._global_model.num_actions, dtype=tf.float64)
         self.sampled_rewards = tf.Variable(self.sampled_rewards, name="rewards", dtype=tf.float64)
-
-
-        logits, _, values = self.global_model.call(tf.convert_to_tensor(np.vstack(self.sampled_states), dtype=tf.float64), keep_p=prob)
+        logits, _, values = self._global_model.call(tf.convert_to_tensor(np.vstack(self.sampled_states), dtype=tf.float64), keep_p=prob)
         values = tf.squeeze(values)
         
         # Policy Loss and Entropy
@@ -126,7 +119,7 @@ class Coordinator:
         ratio = tf.exp(self.sampled_neg_log_prob - neg_log_prob)
         clipped_ratio = tf.clip_by_value(ratio, 1.0 - self._clip_range, 1.0 + self._clip_range)
         self.policy_loss = tf.reduce_mean(tf.minimum(ratio * self.sampled_advantages, clipped_ratio * self.sampled_advantages))
-        self.entropy = tf.reduce_mean(self.global_model.logits_entropy(logits))
+        self.entropy = tf.reduce_mean(self._global_model.logits_entropy(logits))
         
         # Value Loss
         clipped_values = tf.add(self.sampled_values, tf.clip_by_value(values - self.sampled_values, -self._clip_range, self._clip_range))
@@ -148,8 +141,8 @@ class Coordinator:
         if mini_sample_size == 0: # When we reach end of episode early.
             self._train_data = train_data
 
-            params = self.global_model.trainable_variables
-            self.optimizer.minimize(self.loss, var_list=params)
+            params = self._global_model.trainable_variables
+            self._optimizer.minimize(self.loss, var_list=params)
 
             self.collect_stats("LOSS", self._last_batch_loss.numpy())
             return
@@ -176,18 +169,18 @@ class Coordinator:
                 self._train_data = mini_sample
 
                 # Apply Gradients
-                params = self.global_model.trainable_variables
-                self.optimizer.minimize(self.loss, var_list=params)
+                params = self._global_model.trainable_variables
+                self._optimizer.minimize(self.loss, var_list=params)
 
                 self.collect_stats("LOSS", self._last_batch_loss.numpy())
 
     # request access to collector and record stats
     def collect_stats(self, key, value):
-        while self.plot.busy_notice():
+        while self._plot.busy_notice():
             continue
-        self.plot.stop_request()
-        self.plot.collector.collect(key, value)
-        self.plot.continue_request()
+        self._plot.stop_request()
+        self._plot.collector.collect(key, value)
+        self._plot.continue_request()
     
     def calculate_advantages(self, dones, rewards, values, bootstrap):
         advantages = np.zeros((len(rewards)))
@@ -197,8 +190,8 @@ class Coordinator:
             mask = 1.0 - dones[t]
             last_value = last_value * mask
             last_advantage = last_advantage * mask
-            delta = rewards[t] + self.gamma * last_value - values[t]
-            last_advantage = delta + self.gamma * 0.95 * last_advantage
+            delta = rewards[t] + self._gamma * last_value - values[t]
+            last_advantage = delta + self._gamma * 0.95 * last_advantage
             advantages[t] = last_advantage
             last_value = values[t]
 
@@ -230,47 +223,46 @@ class Coordinator:
             if (os.path.exists(save_path)):
                 with open(save_path, 'r') as f:
                     s = f.read()
-                    self.total_steps = int("".join(s.split()))
+                    self._total_steps = int("".join(s.split()))
                     f.close()
         except:
             print("No additional saved state variables.")
         
-        self.plot.start()
+        self._plot.start()
         
         try:
             # Main training loop
-            for _ in range(self.num_epocs):
+            for _ in range(self._num_epocs):
 
                 # ready workers for the next epoc, sync with live plot
-                while self.plot.busy_notice():
+                while self._plot.busy_notice():
                     continue
                 
-                self.plot.stop_request()
+                self._plot.stop_request()
                 
-                for worker in self.workers:
+                for worker in self._workers:
                     worker.reset()
 
-                self.plot.continue_request()
+                self._plot.continue_request()
         
 
                 # loop for generating samples of data to train on the global_network
-                for mb in range(self.batches_per_epoch):
+                for mb in range(self._batches_per_epoch):
                     
-                    self.total_steps += 1  
-
-                    # TODO: implement this
-                    # progress = update / self.total_steps
-                    # self.learning_rate = 2.5e-4 * (1 - progress)
-                    # self.clip_range = 0.1 * (1 - progress) 
+                    self._total_steps += 1  
                     
                     # Copy global network over to local network
-                    self.refresh_local_network_params()
+                    self._refresh_local_network_params()
+
+                    # Decay learning params
+                    if self._config['Decay clip and learning rate']:
+                        self._update_learning_rate_and_clip()
 
                     # Send workers out to threads
                     threads = []
                     prob = self._keep_prob()
-                    self.current_prob = prob
-                    for worker in self.workers:
+                    self._current_prob = prob
+                    for worker in self._workers:
                         threads.append(WorkerThread(target=worker.run, args=([prob])))
 
                     # Start the workers on their tasks
@@ -294,7 +286,7 @@ class Coordinator:
                     all_advantages = np.array([])
 
                     # Calculate discounted rewards for each environment
-                    for env in range(self.num_envs):
+                    for env in range(self._num_envs):
                         done = False
                         batch_rewards = []
                         batch_observations = []
@@ -343,7 +335,7 @@ class Coordinator:
                         boot_strap = 0.0    
                         
                         if (not done):
-                            _, _, boot_strap = self.local_model.step(observation, keep_p=self.current_prob)
+                            _, _, boot_strap = self._local_model.step(observation, keep_p=self._current_prob)
 
                         batch_advantages = self.calculate_advantages(batch_dones, batch_rewards, batch_values, boot_strap)
 
@@ -368,12 +360,12 @@ class Coordinator:
                     #Save model and other variables
                     with open(save_path, 'w') as f:
                         try:
-                            f.write(str(self.total_steps))
+                            f.write(str(self._total_steps))
                             f.close()
                         except: 
                             raise
                     
-                    self.global_model.save_model_weights()
+                    self._global_model.save_model_weights()
 
                     print("Model saved")
                 
@@ -388,7 +380,7 @@ class Coordinator:
             print("ERROR: The coordinator ran into an issue during training!")
             raise
       
-        self.plot.join()
+        self._plot.join()
         
 
 

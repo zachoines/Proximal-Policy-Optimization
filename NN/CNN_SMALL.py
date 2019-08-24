@@ -2,30 +2,23 @@ import os
 import numpy as np
 
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.backend as k
 
-class AC_Model(tf.keras.Model):
-    def __init__(self, input_s, num_actions, is_training=True):
-        super(AC_Model, self).__init__()
+class AC_Model_Small(tf.keras.Model):
+    def __init__(self, input_s, num_actions, config, is_training=True):
+        super(AC_Model_Small, self).__init__()
         self.value_s = None
         self.action_s = None
         self.num_actions = num_actions
         self.training = is_training
 
         # Dicounting hyperparams for loss functions
-        self.entropy_coef = 0.01
-        self.value_function_coeff = 0.50
-        self.max_grad_norm = .50
-        self.learning_rate = 7e-4
-        self.alpha = 0.99
-        self.epsilon = 1e-5
-        
-        # Model variables
-        (_, hight, width, stack) = input_s
-        self.input_def = tf.keras.layers.Input(shape=(hight, width*stack, 1), name="input_layer", dtype=tf.float32)
-
-        # Define Convolution 1
+        self.entropy_coef = config['Entropy coeff']
+        self.value_function_coeff = config['Value loss coeff']
+        self.max_grad_norm = config['Max grad norm']
+        self.learning_rate = config['Learning rate']
+        self.epsilon = config['Epsilon']
+    
+          # Define Convolution 1
         self.conv1 = tf.keras.layers.Conv2D(
             filters=32,
             kernel_size=[8, 8],
@@ -114,25 +107,29 @@ class AC_Model(tf.keras.Model):
         return logits, action_dist, tf.squeeze(value)
     
     # Makes a step in the environment
-    def step(self, observation, keep_per):
-        softmax, logits, value = self.call(observation, keep_per)
-        return logits.numpy(), softmax.numpy(), value.numpy()
+    def step(self, observation, keep_p=0.0):
+        logits, softmax, value = self.call(observation, keep_p=keep_p)
+        return logits.numpy(), softmax.numpy(), tf.squeeze(value).numpy()
 
     # Returns the critic estimation of the current state value
-    def value_function(self, observation):
-        action_dist, softmax, value = self.call(observation, 1.0)
-        return value.numpy()[0]
+    def value_function(self, observation, keep_p):
+        _, _, value = self.call(observation, keep_p)
+        return tf.squeeze(value).numpy()
 
     def save_model_weights(self): 
-        current_dir = os.getcwd()   
-        model_save_path = current_dir + '\Model\checkpoint.tf'
-        self.save_weights(model_save_path, save_format='tf')
+        try:
+            current_dir = os.getcwd()   
+            model_save_path = current_dir + '\Model\checkpoint.tf'
+            self.save_weights(model_save_path, save_format='tf')
+        except:
+            print("ERROR: There was an issue saving the model weights.")
+            pass
 
     def load_model_weights(self):
         current_dir = os.getcwd()
         model_save_path = current_dir + '\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
-
+    
     # Turn logits to softmax and calculate entropy
     def logits_entropy(self, logits):
         a0 = logits - tf.reduce_max(logits, 1, keepdims=True)
@@ -144,3 +141,6 @@ class AC_Model(tf.keras.Model):
     # standard entropy
     def softmax_entropy(self, p0):
         return - tf.reduce_sum(p0 * tf.math.log(p0 + 1e-16), axis=1)
+
+    
+  
