@@ -11,41 +11,45 @@ from Test import Test
 config = {
 
     # Environmental variables
-    'Environment Name' : 'Breakout-v0',    # 'MsPacman-v0'
-    'Number of worker threads' : 8,
+    'Environment Name' : 'Breakout-v0',                                 # Env given to each worker. Play with 'MsPacman-v0' as well.
+    'Number of worker threads' : 8,                                     # NUmber of parallel envs on their own thread.
 
     # Sample loop variables
-    'Number of global sessions' : 256,
-    'Max Number of sample batches per environment episode' : 512,
-    'Max steps taken per batch' : 128, 
+    'Number of environment episodes' : 256,                             # How meny times we reboot test envs.
+    'Max Number of sample batches per environment episode' : 128,       # May end earlier.
+    'Max steps taken per batch' : 128,                                  # Number steps agent takes in env.
+    'Max timsteps' : 256 * 128,                                         # Episodes * batches. likely will end far before as envs may terminate early.
     
     # Training loop variables
-    'Training epochs' : 4,
-    'Mini batches per training epoch' : 4,
+    'Training epochs' : 4,                                              # Number of times we train on a sample gathered from env.
+    'Mini batches per training epoch' : 8,                              # How many updates per epoch per batch.
     
     # Learning variables
-    'Epsilon' : 1e-5,
-    'Gamma' : 0.99,
-    'Learning rate' : 0.0007,
-    'PPO clip range' : 0.2,
-    'Max grad norm' : 0.5,
+    'Epsilon' : 1e-5,                                                   # Noise factor for adam optimizer.
+    'Gamma' : 0.99,                                                     # discount factor for rewards.
+    'Learning rate' : 0.0007,                                           # Learning rate for adam optimizer.
+    'PPO clip range' : 0.2,                                             # Max ratio for PPO loss function .10 ~ .20.
+    'Max grad norm' : 0.5,                                              # Clip norm feed to adam optimizer.
+    'Normalize advantages' : False,                                     # Normalize advantages in mini-batch sent to loss function.
 
-    # Loss function coefficient 
-    'Value loss coeff' : 0.5,
-    'Entropy coeff' : 0.01,
+    # Loss function coefficient     
+    'Value loss coeff' : 0.5,                                           # Discount factor dor value loss in PPO loss function.
+    'Entropy coeff' : 0.01,                                             # Discount factor applied to entropy bonus in PPO loss function. HIgher means more agent exploration.
 
     # CNN options
-    'CNN type' : 'large',   # or 'small'
+    'CNN type' : 'large',   # or 'small'                                # 'Large' vs. 'Small.' Means one has more convolution layers.
 
     # Decay options
-    'Pre training steps' : 0,
-    'Anneling_steps' : 512 * 256,
-    'Decay clip and learning rate' : True
+    'Pre training steps' : 0,                                           # Steps taken before annealing starts.
+    'Anneling_steps' : 128 * 256 * 8 ,                                  # Env restarts * batches * training epochs.
+    'Decay clip and learning rate' : True                               # Decay the PPO clip rate.
+    'Decay end' : '1'
 
 }
 
 if __name__ == "__main__":
-    # Because 42 is the answer to everything
+    
+    # 42 is the answer to everything
     np.random.seed(42)
     tf.random.set_seed(42)
 

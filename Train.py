@@ -56,8 +56,8 @@ class Train():
 
         # Configuration
         # current_dir = os.getcwd()
-        self._model_save_path = '.\Proximal-Policy-Optimization\Model'
-        self._video_save_path = '.\Proximal-Policy-Optimization\Videos'
+        self._model_save_path = '.\Model'
+        self._video_save_path = '.\Videos'
         self.record = True
 
         # Make the super mario gym environments and apply wrappers
@@ -87,8 +87,8 @@ class Train():
         if not os.path.exists(self._model_save_path):
             os.makedirs(self._model_save_path)
 
-        if not os.path.exists('.\Proximal-Policy-Optimization\stats'):
-            os.makedirs('.\Proximal-Policy-Optimization\stats')
+        if not os.path.exists('.\stats'):
+            os.makedirs('.\stats')
 
     def start(self):
         workers = []

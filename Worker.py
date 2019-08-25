@@ -120,13 +120,13 @@ class Worker():
         # or use the Gumbel-Max Trick
         else:
             
-            def sample_gumbel(shape, eps=1e-20): 
-                U = tf.random.uniform(shape,minval=0,maxval=1)
-                return -tf.math.log(-tf.math.log(U + eps) + eps)
+            # def sample_gumbel(shape, eps=1e-20): 
+            #     U = tf.random.uniform(shape,minval=0,maxval=1)
+            #     return -tf.math.log(-tf.math.log(U + eps) + eps)
 
-            y = dist + sample_gumbel(tf.shape(dist))
-            return tf.argmax(tf.nn.softmax( y / temperature * 10)).numpy()
+            # y = dist + sample_gumbel(tf.shape(dist))
+            # return tf.argmax(tf.nn.softmax( y / temperature * 5)).numpy()
             
-            # noise = tf.random.uniform(dist.shape)
-            # return tf.argmax(dist - tf.math.log(-tf.math.log(noise))).numpy()
+            noise = tf.random.uniform(dist.shape)
+            return tf.argmax(dist - tf.math.log(-tf.math.log(noise))).numpy()
 

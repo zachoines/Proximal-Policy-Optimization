@@ -14,8 +14,12 @@ from NN.CNN_SMALL import AC_Model_Small
 
 class Test():
     def __init__(self, config):
+
+        # Reproduce training results
+        np.random.seed(42)
+        tf.random.set_seed(42)
+
         self._config = config
-        # Configuration
         current_dir = os.getcwd()
         model_save_path = current_dir + '.\Model'
 
@@ -26,7 +30,7 @@ class Test():
         ACTION_SPACE = env.env.action_space
 
         network_params = (NUM_STATE, 1.0, NUM_ACTIONS, ACTION_SPACE)
-
+        self.Test_Model = None
         if self._config['CNN type'] == 'large':
             self.Test_Model = AC_Model_Large(NUM_STATE, NUM_ACTIONS, self._config, is_training=False)
         else:

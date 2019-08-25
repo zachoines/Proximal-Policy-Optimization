@@ -61,23 +61,19 @@ class AC_Model_Large(tf.keras.Model):
         # self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name ="maxPool3", trainable=is_training )
         self.flattened = tf.keras.layers.Flatten(name="flattening_layer", trainable=is_training )
         self.hiddenLayer1 = tf.keras.layers.Dense(
-            256,
+            512,
             activation="relu",
             kernel_initializer=tf.keras.initializers.Orthogonal(np.sqrt(2.0)),
             name="hidden_layer", 
             trainable=is_training, 
             dtype='float64' )
         
-        self.hiddenLayer2 = tf.keras.layers.Dense(
-            256,
-            activation="relu",
-            kernel_initializer=tf.keras.initializers.Orthogonal(np.sqrt(2.0)),
-            name="hidden_layer", 
-            trainable=is_training, 
-            dtype='float64' )
 
-        self.dropout1 = tf.keras.layers.Dropout(0.5)
-        self.dropout2 = tf.keras.layers.Dropout(0.5)
+        # self.dropout1 = tf.keras.layers.Dropout(0.5)
+   
+        # self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(0.5)
+        # self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(0.5)
+        # self.spatial_dropout3 = tf.keras.layers.SpatialDropout2D(0.5)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
@@ -100,19 +96,20 @@ class AC_Model_Large(tf.keras.Model):
 
         # Feature maps
         conv1_out = self.conv1(input_image)
+        # conv1_out = self.spatial_dropout1(conv1_out)
         conv2_out = self.conv2(conv1_out)
+        # conv2_out = self.spatial_dropout2(conv2_out)
         conv3_out = self.conv3(conv2_out)
+        # conv3_out = self.spatial_dropout3(conv3_out)
 
         # Linear layers
         flattened_out = self.flattened(conv3_out)
         hidden_out1 = self.hiddenLayer1(flattened_out)
-        hidden_out1 = self.dropout1(hidden_out1)
-        hidden_out2 = self.hiddenLayer2(hidden_out1)
-        hidden_out2 = self.dropout1(hidden_out2)
+        # hidden_out1 = self.dropout1(hidden_out1)
 
         # Actor and the Critic outputs
-        value = self._value(hidden_out2)
-        logits = self._policy(hidden_out2)
+        value = self._value(hidden_out1)
+        logits = self._policy(hidden_out1)
         action_dist = tf.nn.softmax(logits)
 
         return logits, action_dist, value
@@ -129,14 +126,14 @@ class AC_Model_Large(tf.keras.Model):
 
     def save_model_weights(self): 
         try:
-            model_save_path = '.\Proximal-Policy-Optimization\Model\checkpoint.tf'
+            model_save_path = '.\Model\checkpoint.tf'
             self.save_weights(model_save_path, save_format='tf')
         except:
             print("ERROR: There was an issue saving the model weights.")
             raise
 
     def load_model_weights(self):
-        model_save_path = '.\Proximal-Policy-Optimization\Model\checkpoint.tf'
+        model_save_path = '.\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
     
     # Turn logits to softmax and calculate entropy

@@ -152,7 +152,7 @@ class AsynchronousPlot(threading.Thread):
     
                     for name in self.collector.dimensions:
                         
-                        with open(".\Proximal-Policy-Optimization\stats\\" + name + ".txt", 'a') as f:
+                        with open(".\stats\\" + name + ".txt", 'a') as f:
                             data = self.collector.get_dimension(name)
 
                             if  data == None or len(data) == 0:

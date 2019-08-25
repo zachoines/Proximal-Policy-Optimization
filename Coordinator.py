@@ -10,58 +10,52 @@ from Worker import Worker, WorkerThread
 
 class Coordinator:
     def __init__(self, global_model, local_model, workers, plot, model_save_path, config):
+        self._config = config
         self._global_model = global_model
         self._local_model = local_model
         self._model_save_path = model_save_path
-        self._workers = workers
-
-        self._config = config
-        self._num_envs = self._config['Number of worker threads']
-        self._num_epocs = self._config['Number of global sessions']
-        self._batches_per_epoch = self._config['Max Number of sample batches per environment episode']
-        self._batch_size = self._config['Max steps taken per batch']
-        self._gamma = self._config['Gamma']
         self._last_batch_loss = 0
         self._plot = plot   
-        self._total_steps = 0
-        self._anneling_steps = self._config['Anneling_steps']
-        self._pre_train_steps = self._config['Pre training steps']
+        self._workers = workers
+        self._train_data = None
+
+        # Environment loop variables
+        self._num_envs = self._config['Number of worker threads']
+        self._num_env_restarts = self._config['Number of environment episodes']
+        self._samples_per_env_run = self._config['Max Number of sample batches per environment episode']
+    
+        # Training loop variables
+        self._num_epochs = self._config['Training epochs']
+        self._num_workers = self._config['Number of worker threads']
+        self._num_steps = self._config['Max steps taken per batch']
+        self._training_batch_size = self._num_envs * self._num_steps
+        self._max_time_steps = self._num_env_restarts * self._samples_per_env_run 
+        self._num_minibatches = self._num_workers
+        self._max_network_updates = self._max_time_steps // self._training_batch_size
+        self._current_network_updates = 0.0
             
         # Annealing variables
         self._currentE = 1.0
         self._current_prob = 0.0
         self._current_annealed_prob = 1.0
+        self._anneling_steps = self._config['Anneling_steps']
+        self._pre_train_steps = self._config['Pre training steps']
          
         # PPO and training related variables
-        self._num_training_sessions_on_sample_data = self._config['Training epochs']
         self._learning_rate = self._config['Learning rate']
         self._clip_range = self._config['PPO clip range']
         self._epsilon = self._config['Epsilon']
         self._clipnorm =self._config['PPO clip range']
-        self._train_data = None
+        self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm, decay=0.001)
+
+        # Discount variables
+        self._gamma = self._config['Gamma']
         self._learning_rate_decay_rate = 0.0
-        self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm, decay=0.005)
-
-    # Annealing entropy to encourage convergence later: 1.0 to 0.01
-    def _current_entropy(self):
-        startE = .30
-        endE = 0.01 
-
-        # Final chance of random action
-        stepDrop = (startE - endE) / self._anneling_steps
-
-        if self._total_steps % 256 == 0:
-            print("Current entropy is: " + str(self._current_annealed_prob))
-
-        if self._current_annealed_prob >= endE:
-            self._current_annealed_prob -= stepDrop
-            return self._current_annealed_prob
-        else:
-            return 0.01 
 
     def _update_learning_rate_and_clip(self):
-        self._learning_rate = self._learning_rate * (self._currentE)
-        self._clip_range = self._clip_range * (self._currentE) 
+        frac = self._ratio_update()
+        self._learning_rate = self._learning_rate * (frac)
+        self._clip_range = self._clip_range * (frac) 
     
     # STD Mean normalization
     def _normalize(self, x):
@@ -73,8 +67,16 @@ class Coordinator:
     def _clip_by_range(self, x, clip_range=[-50.0, 50.0]):
         clipped_x = tf.clip_by_value(x, min(clip_range), max(clip_range))
         return clipped_x
-            
-    # Annealing temperature scales from .1 to 1.0
+    
+    # Ratio that decrease in sync with number of env sample batches run 
+    def _ratio_step(self):
+         return 1.0 - ((self._total_steps - 1) / (self._max_time_steps))
+
+    # Ratio that decrease in sync with number of mini training batches run
+    def _ratio_update(self):
+         return 1.0 - ((self._current_network_updates - 1) / (self._max_network_updates))
+        
+    # Value decreases each time _keep_prob() is called. Anneals from .1 to 1.0. 
     def _keep_prob(self):
         keep_per = lambda: (1.0 - self._currentE) + 0.01
         startE = 1.0
@@ -107,7 +109,6 @@ class Coordinator:
        
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self):
-        prob = self._current_prob
         self.sampled_states, self.sampled_actions, self.sampled_rewards, self.sampled_advantages, self.sampled_values, self.sampled_logits = self._train_data
         self.sampled_advantages = self.sampled_advantages
         self.sampled_actions_hot = tf.one_hot(self.sampled_actions, self._global_model.num_actions, dtype=tf.float64)
@@ -134,13 +135,21 @@ class Coordinator:
     def train(self, train_data):
 
         [all_states, all_actions, all_returns, all_advantages, all_values, all_logits] = train_data
-        
-        
-        sample_size = len(all_states)   # Sample size = batch_size * num_workers
-        mini_sample_size = sample_size // self._config['Mini batches per training epoch']
+   
+        # Sample size = batch_size * num_workers usually
+        sample_size = len(all_states)   
+        mini_sample_size = sample_size // self._num_minibatches
         indexes = np.arange(sample_size)
 
-        if mini_sample_size == 0: # When we reach end of episode early.
+        # When we reach end of episode early. 
+        if mini_sample_size == 0: 
+
+            # Decay learning params
+            if self._config['Decay clip and learning rate']:
+                self._update_learning_rate_and_clip()
+            
+            self._current_network_updates += 1
+
             self._train_data = train_data
 
             params = self._global_model.trainable_variables
@@ -148,17 +157,19 @@ class Coordinator:
 
             self.collect_stats("LOSS", self._last_batch_loss.numpy())
             return
+
             
-        # Here we will take slices of all sample data from the old policy and train the global network
-        for _ in range(self._num_training_sessions_on_sample_data): 
+        for _ in range(self._num_epochs): 
             
             np.random.shuffle(indexes)
-
-            # Decay learning params
-            if self._config['Decay clip and learning rate']:
-                self._update_learning_rate_and_clip()
             
             for start_index in range(0, sample_size, mini_sample_size):
+
+                # Decay learning params
+                if self._config['Decay clip and learning rate']:
+                    self._update_learning_rate_and_clip()
+                
+                self._current_network_updates += 1
 
                 end_index = start_index + mini_sample_size
                 mini_sample_indexes = indexes[start_index: end_index]
@@ -173,8 +184,10 @@ class Coordinator:
                     mini_sample[5].append(all_logits[index])
                 
                 # Descrease variance of advantages
-                normalized_advantages = self._normalize(mini_sample[3])
-                mini_sample[3] = normalized_advantages        
+                if self._config['Normalize advantages']:
+                    normalized_advantages = self._normalize(mini_sample[3])
+                    mini_sample[3] = normalized_advantages        
+                    
                 self._train_data = mini_sample
 
                 # Apply Gradients
@@ -226,7 +239,7 @@ class Coordinator:
         cv2.destroyAllWindows()
 
     def run(self):
-        save_path = ".\Proximal-Policy-Optimization\Model" + "\state_vars.txt"
+        save_path = ".\Model" + "\state_vars.txt"
 
         try: 
             if (os.path.exists(save_path)):
@@ -241,7 +254,7 @@ class Coordinator:
         
         try:
             # Main training loop
-            for _ in range(self._num_epocs):
+            for _ in range(self._num_env_restarts):
 
                 # ready workers for the next epoc, sync with live plot
                 while self._plot.busy_notice():
@@ -254,9 +267,11 @@ class Coordinator:
 
                 self._plot.continue_request()
         
+                prob = self._keep_prob()
+                self._current_prob = prob
 
                 # loop for generating samples of data to train on the global_network
-                for mb in range(self._batches_per_epoch):
+                for mb in range(self._samples_per_env_run):
                     
                     self._total_steps += 1  
                     
@@ -265,10 +280,9 @@ class Coordinator:
 
                     # Send workers out to threads
                     threads = []
-                    prob = self._keep_prob()
-                    self._current_prob = prob
+            
                     for worker in self._workers:
-                        threads.append(WorkerThread(target=worker.run, args=([prob])))
+                        threads.append(WorkerThread(target=worker.run, args=([self._current_prob])))
 
                     # Start the workers on their tasks
                     for thread in threads:
