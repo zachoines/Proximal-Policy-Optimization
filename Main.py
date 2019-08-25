@@ -9,11 +9,11 @@ from Test import Test
 config = {
 
     # Environmental variables
-    'Environment Name' : 'MsPacman-v0',
+    'Environment Name' : 'Breakout-v0',    # 'MsPacman-v0'
     'Number of worker threads' : 4,
 
     # Sample loop variables
-    'Number of global sessions' : 1,
+    'Number of global sessions' : 256,
     'Max Number of sample batches per environment episode' : 512,
     'Max steps taken per batch' : 128, 
     

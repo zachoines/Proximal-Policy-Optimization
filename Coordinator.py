@@ -217,7 +217,7 @@ class Coordinator:
         cv2.destroyAllWindows()
 
     def run(self):
-        save_path = ".\Model\\" + "state_vars.txt"
+        save_path = ".\Proximal-Policy-Optimization\Model" + "\state_vars.txt"
 
         try: 
             if (os.path.exists(save_path)):

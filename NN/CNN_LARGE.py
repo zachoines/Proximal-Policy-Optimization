@@ -143,16 +143,14 @@ class AC_Model_Large(tf.keras.Model):
 
     def save_model_weights(self): 
         try:
-            current_dir = os.getcwd()   
-            model_save_path = current_dir + '\Model\checkpoint.tf'
+            model_save_path = '.\Proximal-Policy-Optimization\Model\checkpoint.tf'
             self.save_weights(model_save_path, save_format='tf')
         except:
             print("ERROR: There was an issue saving the model weights.")
-            pass
+            raise
 
     def load_model_weights(self):
-        current_dir = os.getcwd()
-        model_save_path = current_dir + '\Model\checkpoint.tf'
+        model_save_path = '.\Proximal-Policy-Optimization\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
     
     # Turn logits to softmax and calculate entropy

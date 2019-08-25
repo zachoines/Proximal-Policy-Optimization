@@ -23,7 +23,7 @@ class AC_Model_Small(tf.keras.Model):
             filters=32,
             kernel_size=[8, 8],
             strides=(4, 4),
-            kernel_initializer=keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
             padding="valid",
             activation="relu", 
             name="conv1",
@@ -36,7 +36,7 @@ class AC_Model_Small(tf.keras.Model):
             filters=64,
             kernel_size=[3, 3],
             strides=[2, 2],
-            kernel_initializer=keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
             padding="valid",
             activation="relu",
             name="conv2", 
@@ -49,7 +49,7 @@ class AC_Model_Small(tf.keras.Model):
         self.hiddenLayer = tf.keras.layers.Dense(
             256,
             activation="relu",
-            kernel_initializer=keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
             name="hidden_layer", 
             trainable=is_training )
 
@@ -58,7 +58,7 @@ class AC_Model_Small(tf.keras.Model):
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
-            kernel_initializer=keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
             activation='linear',
             name="value_layer",
             trainable=is_training )
@@ -66,7 +66,7 @@ class AC_Model_Small(tf.keras.Model):
         self._policy = tf.keras.layers.Dense(
             self.num_actions,
             activation='linear',
-            kernel_initializer=keras.initializers.Orthogonal(gain=.3),
+            kernel_initializer=tf.keras.initializers.Orthogonal(gain=.3),
             name="policy_layer", trainable=is_training )
 
         # Batch regularization
@@ -118,16 +118,14 @@ class AC_Model_Small(tf.keras.Model):
 
     def save_model_weights(self): 
         try:
-            current_dir = os.getcwd()   
-            model_save_path = current_dir + '\Model\checkpoint.tf'
+            model_save_path = '.\Proximal-Policy-Optimization\Model\checkpoint.tf'
             self.save_weights(model_save_path, save_format='tf')
         except:
             print("ERROR: There was an issue saving the model weights.")
-            pass
+            raise
 
     def load_model_weights(self):
-        current_dir = os.getcwd()
-        model_save_path = current_dir + '\Model\checkpoint.tf'
+        model_save_path = '.\Proximal-Policy-Optimization\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
     
     # Turn logits to softmax and calculate entropy

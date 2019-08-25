@@ -28,7 +28,7 @@ class Test():
         network_params = (NUM_STATE, 1.0, NUM_ACTIONS, ACTION_SPACE)
 
         if self._config['CNN type'] == 'large':
-            self.Test_Model = AC_Model_Large(NUM_STATE, NUM_ACTIONS, is_training=False)
+            self.Test_Model = AC_Model_Large(NUM_STATE, NUM_ACTIONS, self._config, is_training=False)
         else:
             self.Test_Model = AC_Model_Small(NUM_STATE, NUM_ACTIONS, is_training=False)
 
