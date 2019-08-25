@@ -1,4 +1,6 @@
 import sys
+import tensorflow as tf
+import numpy as np
 
 from Train import Train
 from Test import Test
@@ -10,7 +12,7 @@ config = {
 
     # Environmental variables
     'Environment Name' : 'Breakout-v0',    # 'MsPacman-v0'
-    'Number of worker threads' : 4,
+    'Number of worker threads' : 8,
 
     # Sample loop variables
     'Number of global sessions' : 256,
@@ -18,7 +20,7 @@ config = {
     'Max steps taken per batch' : 128, 
     
     # Training loop variables
-    'Training epochs' : 8,
+    'Training epochs' : 4,
     'Mini batches per training epoch' : 4,
     
     # Learning variables
@@ -37,12 +39,16 @@ config = {
 
     # Decay options
     'Pre training steps' : 0,
-    'Anneling_steps' : 512 * 128,
+    'Anneling_steps' : 512 * 256,
     'Decay clip and learning rate' : True
 
 }
 
 if __name__ == "__main__":
+    # Because 42 is the answer to everything
+    np.random.seed(42)
+    tf.random.set_seed(42)
+
     train_session = Train(config)
 
     if (train_session.start()):

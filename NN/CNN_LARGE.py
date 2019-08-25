@@ -60,21 +60,29 @@ class AC_Model_Large(tf.keras.Model):
 
         # self.maxPool3 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name ="maxPool3", trainable=is_training )
         self.flattened = tf.keras.layers.Flatten(name="flattening_layer", trainable=is_training )
-        self.hiddenLayer = tf.keras.layers.Dense(
-            512,
+        self.hiddenLayer1 = tf.keras.layers.Dense(
+            256,
+            activation="relu",
+            kernel_initializer=tf.keras.initializers.Orthogonal(np.sqrt(2.0)),
+            name="hidden_layer", 
+            trainable=is_training, 
+            dtype='float64' )
+        
+        self.hiddenLayer2 = tf.keras.layers.Dense(
+            256,
             activation="relu",
             kernel_initializer=tf.keras.initializers.Orthogonal(np.sqrt(2.0)),
             name="hidden_layer", 
             trainable=is_training, 
             dtype='float64' )
 
-        # self.lstm = tf.keras.layers.SimpleRNN(128, trainable=is_training, dtype='float64')
+        self.dropout1 = tf.keras.layers.Dropout(0.5)
+        self.dropout2 = tf.keras.layers.Dropout(0.5)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
             1,
             kernel_initializer=tf.keras.initializers.orthogonal(np.sqrt(2.0)),
-            # kernel_regularizer=keras.regularizers.l2(l=0.01),
             activation='linear',
             name="value_layer",
             use_bias=True,
@@ -84,49 +92,27 @@ class AC_Model_Large(tf.keras.Model):
             self.num_actions,
             activation='linear',
             kernel_initializer=tf.keras.initializers.orthogonal(.01),
-            # kernel_regularizer=keras.regularizers.l2(l=0.01),
             use_bias=True,
             name="policy_layer", trainable=is_training )
 
-        # Batch regularization
-        # self.batch_reg1 = tf.keras.layers.BatchNormalization()
-        # self.batch_reg2 = tf.keras.layers.BatchNormalization()
-        # self.batch_reg3 = tf.keras.layers.BatchNormalization()
-
-        # Dropout layers to prevent overfitting
-        # self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
-        # self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
-        # self.spatial_dropout3 = tf.keras.layers.SpatialDropout2D(rate=.5, seed=1, trainable=is_training)
-        # self.linear_dropout = tf.keras.layers.Dropout(rate=.5, trainable=is_training)
 
     def call(self, input_image, keep_p=1.0):
 
-        # Feature maps one
+        # Feature maps
         conv1_out = self.conv1(input_image)
-        # conv1_out = self.batch_reg1(conv1_out)
-        # maxPool1_out = self.maxPool1(conv1_out)
-        # maxPool1_out = self.spatial_dropout1(maxPool1_out)
-
-        # Feature maps two
         conv2_out = self.conv2(conv1_out)
-        # conv2_out = self.batch_reg2(conv2_out)
-        # maxPool2_out = self.maxPool2(conv2_out)
-        # maxPool2_out = self.spatial_dropout2(conv2_out)
-
-        # Feature maps three
         conv3_out = self.conv3(conv2_out)
-        # conv3_out = self.batch_reg3(conv3_out)
-        # maxPool3_out = self.maxPool3(conv3_out)
-        # maxPool3_out = self.spatial_dropout3(maxPool3_out)
-        
+
         # Linear layers
         flattened_out = self.flattened(conv3_out)
-        hidden_out = self.hiddenLayer(flattened_out)
-        # hidden_out = self.linear_dropout(hidden_out)
+        hidden_out1 = self.hiddenLayer1(flattened_out)
+        hidden_out1 = self.dropout1(hidden_out1)
+        hidden_out2 = self.hiddenLayer2(hidden_out1)
+        hidden_out2 = self.dropout1(hidden_out2)
 
         # Actor and the Critic outputs
-        value = self._value(hidden_out)
-        logits = self._policy(hidden_out)
+        value = self._value(hidden_out2)
+        logits = self._policy(hidden_out2)
         action_dist = tf.nn.softmax(logits)
 
         return logits, action_dist, value

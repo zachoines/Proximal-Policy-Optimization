@@ -39,7 +39,8 @@ class Coordinator:
         self._epsilon = self._config['Epsilon']
         self._clipnorm =self._config['PPO clip range']
         self._train_data = None
-        self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm)
+        self._learning_rate_decay_rate = 0.0
+        self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm, decay=0.005)
 
     # Annealing entropy to encourage convergence later: 1.0 to 0.01
     def _current_entropy(self):
@@ -64,7 +65,8 @@ class Coordinator:
     
     # STD Mean normalization
     def _normalize(self, x):
-        norm_x = (x - x.mean()) / (x.std() + 1e-8)
+        
+        norm_x = x - np.mean(x) / (np.std(x) + 1e-8)
         # norm_x = (x - tf.reduce_mean(x)) / tf.math.reduce_std(x)
         return norm_x
 
@@ -131,11 +133,11 @@ class Coordinator:
       
     def train(self, train_data):
 
-        (all_states, all_actions, all_returns, all_advantages, all_values, all_logits) = train_data
+        [all_states, all_actions, all_returns, all_advantages, all_values, all_logits] = train_data
         
         
         sample_size = len(all_states)   # Sample size = batch_size * num_workers
-        mini_sample_size = sample_size // 4
+        mini_sample_size = sample_size // self._config['Mini batches per training epoch']
         indexes = np.arange(sample_size)
 
         if mini_sample_size == 0: # When we reach end of episode early.
@@ -151,13 +153,17 @@ class Coordinator:
         for _ in range(self._num_training_sessions_on_sample_data): 
             
             np.random.shuffle(indexes)
+
+            # Decay learning params
+            if self._config['Decay clip and learning rate']:
+                self._update_learning_rate_and_clip()
             
             for start_index in range(0, sample_size, mini_sample_size):
 
                 end_index = start_index + mini_sample_size
                 mini_sample_indexes = indexes[start_index: end_index]
                 
-                mini_sample = ([], [], [], [], [], [])
+                mini_sample = [[], [], [], [], [], []]
                 for index in mini_sample_indexes:
                     mini_sample[0].append(all_states[index])
                     mini_sample[1].append(all_actions[index])
@@ -166,6 +172,9 @@ class Coordinator:
                     mini_sample[4].append(all_values[index])
                     mini_sample[5].append(all_logits[index])
                 
+                # Descrease variance of advantages
+                normalized_advantages = self._normalize(mini_sample[3])
+                mini_sample[3] = normalized_advantages        
                 self._train_data = mini_sample
 
                 # Apply Gradients
@@ -253,10 +262,6 @@ class Coordinator:
                     
                     # Copy global network over to local network
                     self._refresh_local_network_params()
-
-                    # Decay learning params
-                    if self._config['Decay clip and learning rate']:
-                        self._update_learning_rate_and_clip()
 
                     # Send workers out to threads
                     threads = []
