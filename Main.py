@@ -15,13 +15,13 @@ config = {
     'Number of worker threads' : 8,                                     # NUmber of parallel envs on their own thread.
 
     # Sample loop variables
-    'Number of environment episodes' : 256,                             # How meny times we reboot test envs.
-    'Max Number of sample batches per environment episode' : 128,       # May end earlier.
+    'Number of environment episodes' : 512,                             # How meny times we reboot test envs.
+    'Max Number of sample batches per environment episode' : 512,       # May end earlier.
     'Max steps taken per batch' : 128,                                  # Number steps agent takes in env.
-    'Max timsteps' : 256 * 128,                                         # Episodes * batches. likely will end far before as envs may terminate early.
+    'Max timsteps' : 512 * 512,                                         # Episodes * batches. likely will end far before as envs may terminate early.
     
     # Training loop variables
-    'Training epochs' : 4,                                              # Number of times we train on a sample gathered from env.
+    'Training epochs' : 8,                                              # Number of times we train on a sample gathered from env.
     'Mini batches per training epoch' : 8,                              # How many updates per epoch per batch.
     
     # Learning variables
@@ -43,7 +43,6 @@ config = {
     'Pre training steps' : 0,                                           # Steps taken before annealing starts.
     'Anneling_steps' : 128 * 256 * 8 ,                                  # Env restarts * batches * training epochs.
     'Decay clip and learning rate' : True                               # Decay the PPO clip rate.
-    'Decay end' : '1'
 
 }
 

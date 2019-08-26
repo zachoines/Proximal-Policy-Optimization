@@ -23,6 +23,7 @@ class Coordinator:
         self._num_envs = self._config['Number of worker threads']
         self._num_env_restarts = self._config['Number of environment episodes']
         self._samples_per_env_run = self._config['Max Number of sample batches per environment episode']
+        self._total_steps = 0
     
         # Training loop variables
         self._num_epochs = self._config['Training epochs']
@@ -31,8 +32,8 @@ class Coordinator:
         self._training_batch_size = self._num_envs * self._num_steps
         self._max_time_steps = self._num_env_restarts * self._samples_per_env_run 
         self._num_minibatches = self._num_workers
-        self._max_network_updates = self._max_time_steps // self._training_batch_size
-        self._current_network_updates = 0.0
+        self._max_epocs = self._max_time_steps  # Doesn't include env step size
+        self._current_training_epocs = 0.0
             
         # Annealing variables
         self._currentE = 1.0
@@ -74,7 +75,10 @@ class Coordinator:
 
     # Ratio that decrease in sync with number of mini training batches run
     def _ratio_update(self):
-         return 1.0 - ((self._current_network_updates - 1) / (self._max_network_updates))
+        ratio = 1.0 - ((self._current_training_epocs - 1) / (self._max_epocs))
+        if self._current_training_epocs % 32 == 0:
+            print(ratio)
+        return ratio
         
     # Value decreases each time _keep_prob() is called. Anneals from .1 to 1.0. 
     def _keep_prob(self):
@@ -109,6 +113,7 @@ class Coordinator:
        
     # pass a tuple of (batch_states, batch_actions,batch_rewards)
     def loss(self):
+        prob = self._current_prob
         self.sampled_states, self.sampled_actions, self.sampled_rewards, self.sampled_advantages, self.sampled_values, self.sampled_logits = self._train_data
         self.sampled_advantages = self.sampled_advantages
         self.sampled_actions_hot = tf.one_hot(self.sampled_actions, self._global_model.num_actions, dtype=tf.float64)
@@ -141,14 +146,13 @@ class Coordinator:
         mini_sample_size = sample_size // self._num_minibatches
         indexes = np.arange(sample_size)
 
+        # Decay learning params
+        self._current_training_epocs += 1
+        if self._config['Decay clip and learning rate']:
+            self._update_learning_rate_and_clip()
+
         # When we reach end of episode early. 
         if mini_sample_size == 0: 
-
-            # Decay learning params
-            if self._config['Decay clip and learning rate']:
-                self._update_learning_rate_and_clip()
-            
-            self._current_network_updates += 1
 
             self._train_data = train_data
 
@@ -164,13 +168,7 @@ class Coordinator:
             np.random.shuffle(indexes)
             
             for start_index in range(0, sample_size, mini_sample_size):
-
-                # Decay learning params
-                if self._config['Decay clip and learning rate']:
-                    self._update_learning_rate_and_clip()
                 
-                self._current_network_updates += 1
-
                 end_index = start_index + mini_sample_size
                 mini_sample_indexes = indexes[start_index: end_index]
                 
