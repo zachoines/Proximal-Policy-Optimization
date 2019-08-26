@@ -136,7 +136,7 @@ class AC_Model_Large(tf.keras.Model):
         model_save_path = '.\Model\checkpoint.tf'
         self.load_weights(filepath=model_save_path)
     
-    # Turn logits to softmax and calculate entropy
+    # Open AI entropy
     def logits_entropy(self, logits):
         a0 = logits - tf.reduce_max(logits, 1, keepdims=True)
         ea0 = tf.exp(a0)

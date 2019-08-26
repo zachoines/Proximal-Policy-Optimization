@@ -15,7 +15,7 @@ config = {
     'Number of worker threads' : 8,                                     # NUmber of parallel envs on their own thread.
 
     # Sample loop variables
-    'Number of environment episodes' : 512,                             # How meny times we reboot test envs.
+    'Number of environment episodes' : 512,                             # How many times we reboot test envs.
     'Max Number of sample batches per environment episode' : 512,       # May end earlier.
     'Max steps taken per batch' : 128,                                  # Number steps agent takes in env.
     'Max timsteps' : 512 * 512,                                         # Episodes * batches. likely will end far before as envs may terminate early.
