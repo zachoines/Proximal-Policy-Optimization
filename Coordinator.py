@@ -31,7 +31,7 @@ class Coordinator:
         self._num_steps = self._config['Max steps taken per batch']
         self._training_batch_size = self._num_envs * self._num_steps
         self._max_time_steps = self._num_env_restarts * self._samples_per_env_run 
-        self._num_minibatches = self._num_workers
+        self._num_minibatches = self._config['Mini batches per training epoch']
         self._max_epocs = self._max_time_steps  # Doesn't include env step size
         self._current_training_epocs = 0.0
             
@@ -47,7 +47,8 @@ class Coordinator:
         self._clip_range = self._config['PPO clip range']
         self._epsilon = self._config['Epsilon']
         self._clipnorm =self._config['PPO clip range']
-        self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm, decay=0.001)
+        self._min_clip = self._config['Min clip']
+        self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm) # , decay=0.0001
 
         # Discount variables
         self._gamma = self._config['Gamma']
@@ -56,8 +57,21 @@ class Coordinator:
     def _update_learning_rate_and_clip(self):
         frac = self._ratio_update()
         self._learning_rate = self._learning_rate * (frac)
-        self._clip_range = self._clip_range * (frac) 
-    
+
+        new_clip = self._clip_range * (frac)
+
+        if new_clip > self._min_clip:
+            self._clip_range = self._clip_range * (frac) 
+
+    # Pause execution and Sync with the live plot
+    def syncWithLivePlot(self):
+        self._plot.continue_request()
+
+        while self._plot.busy_notice():
+            continue
+
+        self._plot.stop_request()
+
     # STD Mean normalization
     def _normalize(self, x):
         
@@ -141,35 +155,22 @@ class Coordinator:
 
         [all_states, all_actions, all_returns, all_advantages, all_values, all_logits] = train_data
    
-        # Sample size = batch_size * num_workers usually
-        sample_size = len(all_states)   
-        mini_sample_size = sample_size // self._num_minibatches
-        indexes = np.arange(sample_size)
+        indexes = np.arange(self._training_batch_size)
 
         # Decay learning params
         self._current_training_epocs += 1
         if self._config['Decay clip and learning rate']:
             self._update_learning_rate_and_clip()
-
-        # When we reach end of episode early. 
-        if mini_sample_size == 0: 
-
-            self._train_data = train_data
-
-            params = self._global_model.trainable_variables
-            self._optimizer.minimize(self.loss, var_list=params)
-
-            self.collect_stats("LOSS", self._last_batch_loss.numpy())
-            return
-
             
         for _ in range(self._num_epochs): 
+
+            mini_batch_size = self._training_batch_size // self._num_minibatches
             
             np.random.shuffle(indexes)
             
-            for start_index in range(0, sample_size, mini_sample_size):
+            for start_index in range(0, self._training_batch_size, mini_batch_size):
                 
-                end_index = start_index + mini_sample_size
+                end_index = start_index + mini_batch_size
                 mini_sample_indexes = indexes[start_index: end_index]
                 
                 mini_sample = [[], [], [], [], [], []]
@@ -217,7 +218,6 @@ class Coordinator:
 
         return advantages
 
-
     # Produces reversed list of bootstrapped discounted r
     def rewards_discounted(self, rewards, gamma, bootstrap):
         
@@ -254,22 +254,14 @@ class Coordinator:
             # Main training loop
             for _ in range(self._num_env_restarts):
 
-                # ready workers for the next epoc, sync with live plot
-                while self._plot.busy_notice():
-                    continue
-                
-                self._plot.stop_request()
-                
-                for worker in self._workers:
-                    worker.reset()
 
-                self._plot.continue_request()
-        
                 prob = self._keep_prob()
                 self._current_prob = prob
 
                 # loop for generating samples of data to train on the global_network
                 for mb in range(self._samples_per_env_run):
+
+                    self.syncWithLivePlot()
                     
                     self._total_steps += 1  
                     
@@ -304,65 +296,77 @@ class Coordinator:
 
                     # Calculate discounted rewards for each environment
                     for env in range(self._num_envs):
-                        done = False
-                        batch_rewards = []
-                        batch_observations = []
-                        batch_states = []
-                        batch_actions = []
-                        batch_values = []
-                        batch_logits = []
-                        batch_advantages = []
-                        batch_dones = []
-
+                            
                         mb = batches[env]
                         
                         # Empty batch
                         if mb == [] or mb == None:
-                            continue
-
+                            print('ERROR: Empty batch returned by worker thread.')
+                            raise
 
                         # For every step made in this env for this particular batch
                         done = False
                         value = None
                         observation = None
+                        
+                        actions = []
+                        rewards = []
+                        observations = []
+                        states = []
+                        values = []
+                        logits = []
+                        dones = []
+                        advantages = []
 
                         for step in mb:
-                            (state, observation, reward, value, action, done, logits) = step
-                            batch_actions.append(action)
-                            batch_rewards.append(reward)
-                            batch_observations.append(observation)
-                            batch_states.append(state)
-                            batch_values.append(value)
-                            batch_logits.append(logits)
-                            batch_dones.append(done)
+                            (state, observation, reward, value, action, done, logit) = step
+                            actions.append(action)
+                            rewards.append(reward)
+                            observations.append(observation)
+                            states.append(state)
+                            values.append(value)
+                            logits.append(logit)
+                            dones.append(done)
 
+                            if done:
+                                advantages = self.calculate_advantages(dones, rewards, values, 0)
+                                all_dones = np.concatenate((all_dones, dones), 0) if all_dones.size else np.array(dones)
+                                all_values = np.concatenate((all_values, values), 0) if all_values.size else np.array(values)
+                                all_advantages = np.concatenate((all_advantages, advantages), 0) if all_advantages.size else np.array(advantages)
+                                all_logits = np.concatenate((all_logits, logits), 0) if all_logits.size else np.array(logits)
+                                all_rewards = np.concatenate((all_rewards, rewards), 0) if all_rewards.size else np.array(rewards)
+                                all_states = np.concatenate((all_states, states), 0) if all_states.size else np.array(states)
+                                all_actions = np.concatenate((all_actions, actions), 0) if all_actions.size else np.array(actions)
+                                
+                                actions = []
+                                rewards = []
+                                observations = []
+                                states = []
+                                values = []
+                                logits = []
+                                dones = []
+                                advantages = []
+                        
+                        # No more steps to process
+                        if actions == []:
+                            continue
                         
                         # If we reached the end of an episode or if we filled a batch without reaching termination of episode
                         # we boot-strap the final rewards with the V_s(last_observation)
-
-                        # Discounted bootstraped rewards formula:
-                        # G_t == R + γ * V(S_t'):
-
-                        # Advantage
-                        # δ_t == R + γ * V(S_t') - V(S_t): 
-                        
-                        # Or simply... 
-                        # δ_t == G_t - V: 
-                        # 
                         boot_strap = 0.0    
                         
                         if (not done):
                             _, _, boot_strap = self._local_model.step(observation, keep_p=self._current_prob)
 
-                        batch_advantages = self.calculate_advantages(batch_dones, batch_rewards, batch_values, boot_strap)
+                            advantages = self.calculate_advantages(dones, rewards, values, boot_strap)
 
-                        all_dones = np.concatenate((all_dones, batch_dones), 0) if all_dones.size else np.array(batch_dones)
-                        all_values = np.concatenate((all_values, batch_values), 0) if all_values.size else np.array(batch_values)
-                        all_advantages = np.concatenate((all_advantages, batch_advantages), 0) if all_advantages.size else np.array(batch_advantages)
-                        all_logits = np.concatenate((all_logits, batch_logits), 0) if all_logits.size else np.array(batch_logits)
-                        all_rewards = np.concatenate((all_rewards, batch_rewards), 0) if all_rewards.size else np.array(batch_rewards)
-                        all_states = np.concatenate((all_states, batch_states), 0) if all_states.size else np.array(batch_states)
-                        all_actions = np.concatenate((all_actions, batch_actions), 0) if all_actions.size else np.array(batch_actions)
+                        all_dones = np.concatenate((all_dones, dones), 0) if all_dones.size else np.array(dones)
+                        all_values = np.concatenate((all_values, values), 0) if all_values.size else np.array(values)
+                        all_advantages = np.concatenate((all_advantages, advantages), 0) if all_advantages.size else np.array(advantages)
+                        all_logits = np.concatenate((all_logits, logits), 0) if all_logits.size else np.array(logits)
+                        all_rewards = np.concatenate((all_rewards, rewards), 0) if all_rewards.size else np.array(rewards)
+                        all_states = np.concatenate((all_states, states), 0) if all_states.size else np.array(states)
+                        all_actions = np.concatenate((all_actions, actions), 0) if all_actions.size else np.array(actions)
 
                            
                     # We can do this because: d/dx ∑ loss  == ∑ d/dx loss

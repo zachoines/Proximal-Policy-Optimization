@@ -77,7 +77,7 @@ class AC_Model_Small(tf.keras.Model):
         self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
         self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
         
-        self.linear_dropout = tf.keras.layers.Dropout(rate=.8, trainable=is_training)
+        self.linear_dropout = tf.keras.layers.Dropout(rate=.5, trainable=is_training)
 
     def call(self, input_image, keep_p=1.0):
 

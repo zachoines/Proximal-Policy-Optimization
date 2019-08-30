@@ -11,6 +11,10 @@ from tensorflow.python.client import device_lib
 
 # Importing the packages for OpenAI
 import gym
+import gym
+from nes_py.wrappers import JoypadSpace
+import gym_super_mario_bros
+from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
 # Locally defined classes
 from Wrappers import preprocess
@@ -68,12 +72,16 @@ class Train():
 
         # Apply env wrappers
         counter = 0
-        for env in env_names:
-            env = gym.make(env) 
-            # env = preprocess.FrameSkip(env, 4)
+        for env_name in env_names:
+            env = gym.make(env_name) 
+            if env_name == 'SuperMarioBros-v0':
+                env = JoypadSpace(env, COMPLEX_MOVEMENT)
+                env = preprocess.FrameSkip(env, 4)
+                env = Normalize(env)
             env = Monitor(env, env.observation_space.shape, savePath=self._video_save_path, record=self.record)
             env = preprocess.GrayScaleImage(env, height=84, width=84, grayscale=True)
             env = preprocess.FrameStack(env, 4)
+            
             env = Stats(env, collector)
             self._envs.append(env)
 

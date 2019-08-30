@@ -32,7 +32,7 @@ class Worker():
         self.network = network
         self.env = env
         self.batch_size = batch_size 
-        self.s = None
+        self.s = self.env.reset()
         self.NUM_ACTIONS = env.action_space.n
         self.NONE_STATE = np.zeros(self.env.observation_space.shape)
         self.exploration = exploration
@@ -48,15 +48,13 @@ class Worker():
     # Generate an batch worth of observations. Return nothing.
     def run(self, keep_prob):
         batch = []
-        for step in range(self.batch_size):
+        while (len(batch) < self.batch_size):
 
             # Make a prediction and take a step if the epoc is not done
             if not self._done:
                 self.total_steps += 1
                 [logits], [action_dist], value = self.network.step(self.s, keep_p=keep_prob)
-
-                # temperature=(1 - keep_prob) * 10
-                # , exploration="Epsilon_greedy"
+                
                 action = self.action_select(logits, temperature=(1 - keep_prob))
                 s_t, reward, d, stuff = self.env.step(action)
                 self._done = d
@@ -69,12 +67,12 @@ class Worker():
                     self.env.render()
 
             else:
-                self._batch_buffer.append(batch)
-                return batch
+                self._done = False
+                self.s = self.env.reset()
 
-        self._batch_buffer.append(batch)
-        if batch == None:
-            print('There is an issue!')
+        if batch == None or len(batch) < self.batch_size:
+            print('ERROR: There was an issue with episode run!')
+            raise
         return batch
 
     
@@ -90,10 +88,7 @@ class Worker():
         #  / ((temperature) * 10)
         if exploration == "boltzmann":        
             
-            dist = tf.nn.softmax(dist / ((temperature) * 5)).numpy()
-            # a = np.random.choice(dist,p=dist)
-            # probs = dist == a
-            # a = np.argmax(probs)
+            dist = tf.nn.softmax(dist / ((temperature) * 4 + 1)).numpy()
 
             [probas] = np.random.multinomial(1, dist, 1)
             a = np.argmax(probas)
@@ -119,13 +114,14 @@ class Worker():
 
         # or use the Gumbel-Max Trick
         else:
-            
+            # Use this if you want to define a decayed temp to increase uncertainty
+
             # def sample_gumbel(shape, eps=1e-20): 
             #     U = tf.random.uniform(shape,minval=0,maxval=1)
             #     return -tf.math.log(-tf.math.log(U + eps) + eps)
 
             # y = dist + sample_gumbel(tf.shape(dist))
-            # return tf.argmax(tf.nn.softmax( y / temperature * 5)).numpy()
+            # return tf.argmax(tf.nn.softmax( y / ( temperature * 4.0) + 1.0)).numpy()
             
             noise = tf.random.uniform(dist.shape)
             return tf.argmax(dist - tf.math.log(-tf.math.log(noise))).numpy()

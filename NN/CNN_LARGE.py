@@ -64,16 +64,30 @@ class AC_Model_Large(tf.keras.Model):
             512,
             activation="relu",
             kernel_initializer=tf.keras.initializers.Orthogonal(np.sqrt(2.0)),
-            name="hidden_layer", 
+            name="hidden_layer1", 
             trainable=is_training, 
             dtype='float64' )
+
+        # self.hiddenLayer2 = tf.keras.layers.Dense(
+        #     256,
+        #     activation="relu",
+        #     kernel_initializer=tf.keras.initializers.Orthogonal(np.sqrt(2.0)),
+        #     name="hidden_layer2", 
+        #     trainable=is_training, 
+        #     dtype='float64' )
         
 
         # self.dropout1 = tf.keras.layers.Dropout(0.5)
+        # self.dropout2 = tf.keras.layers.Dropout(0.5)
    
         # self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(0.5)
         # self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(0.5)
         # self.spatial_dropout3 = tf.keras.layers.SpatialDropout2D(0.5)
+
+        # Batch regularization
+        # self.batch_reg1 = tf.keras.layers.BatchNormalization()
+        # self.batch_reg2 = tf.keras.layers.BatchNormalization()
+        # self.batch_reg3 = tf.keras.layers.BatchNormalization()
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
@@ -96,16 +110,19 @@ class AC_Model_Large(tf.keras.Model):
 
         # Feature maps
         conv1_out = self.conv1(input_image)
-        # conv1_out = self.spatial_dropout1(conv1_out)
+        # conv1_out = self.batch_reg1(conv1_out)
         conv2_out = self.conv2(conv1_out)
-        # conv2_out = self.spatial_dropout2(conv2_out)
+        # conv2_out = self.batch_reg2(conv2_out)
         conv3_out = self.conv3(conv2_out)
-        # conv3_out = self.spatial_dropout3(conv3_out)
+        # conv3_out = self.batch_reg3(conv3_out)
 
         # Linear layers
         flattened_out = self.flattened(conv3_out)
         hidden_out1 = self.hiddenLayer1(flattened_out)
         # hidden_out1 = self.dropout1(hidden_out1)
+        # hidden_out2 = self.hiddenLayer2(hidden_out1)
+        # hidden_out2 = self.dropout2(hidden_out2)
+       
 
         # Actor and the Critic outputs
         value = self._value(hidden_out1)
