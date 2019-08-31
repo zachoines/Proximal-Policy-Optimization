@@ -53,7 +53,7 @@ class AC_Model_Small(tf.keras.Model):
             name="hidden_layer", 
             trainable=is_training )
 
-        self.lstm = tf.keras.layers.SimpleRNN(256, trainable=is_training)
+        # self.lstm = tf.keras.layers.SimpleRNN(256, trainable=is_training)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
@@ -70,12 +70,12 @@ class AC_Model_Small(tf.keras.Model):
             name="policy_layer", trainable=is_training )
 
         # Batch regularization
-        self.batch_reg1 = tf.keras.layers.BatchNormalization()
-        self.batch_reg2 = tf.keras.layers.BatchNormalization()
+        # self.batch_reg1 = tf.keras.layers.BatchNormalization()
+        # self.batch_reg2 = tf.keras.layers.BatchNormalization()
 
         # Dropout layers to prevent overfitting
-        self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
-        self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
+        # self.spatial_dropout1 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
+        # self.spatial_dropout2 = tf.keras.layers.SpatialDropout2D(rate=.5, trainable=is_training)
         
         self.linear_dropout = tf.keras.layers.Dropout(rate=.5, trainable=is_training)
 
@@ -83,21 +83,21 @@ class AC_Model_Small(tf.keras.Model):
 
         # Feature maps one
         conv1_out = self.conv1(input_image)
-        batch_reg1_out = self.batch_reg1(conv1_out)
-        spatial_dropout1_out = self.spatial_dropout1(batch_reg1_out)
-        maxPool1_out = self.maxPool1(spatial_dropout1_out)
+        # batch_reg1_out = self.batch_reg1(conv1_out)
+        # spatial_dropout1_out = self.spatial_dropout1(batch_reg1_out)
+        maxPool1_out = self.maxPool1(conv1_out)
 
         # Feature maps two
         conv2_out = self.conv2(maxPool1_out)
-        batch_reg2_out = self.batch_reg2(conv2_out)
-        spatial_dropout2_out = self.spatial_dropout2(batch_reg2_out)
-        maxPool2_out = self.maxPool2(spatial_dropout2_out)
+        # batch_reg2_out = self.batch_reg2(conv2_out)
+        # spatial_dropout2_out = self.spatial_dropout2(batch_reg2_out)
+        maxPool2_out = self.maxPool2(conv2_out)
         
         # Hidden Linear layers
         flattened_out = self.flattened(maxPool2_out)
         hidden_out = self.hiddenLayer(flattened_out)
-        hidden_out = self.linear_dropout(hidden_out)
-        hidden_out = self.lstm(tf.expand_dims(hidden_out, axis=1))
+        # hidden_out = self.linear_dropout(hidden_out)
+        # hidden_out = self.lstm(tf.expand_dims(hidden_out, axis=1))
 
         # Actor and the Critic outputs
         value = self._value(hidden_out)

@@ -32,7 +32,7 @@ class Coordinator:
         self._training_batch_size = self._num_envs * self._num_steps
         self._max_time_steps = self._num_env_restarts * self._samples_per_env_run 
         self._num_minibatches = self._config['Mini batches per training epoch']
-        self._max_epocs = self._max_time_steps  # Doesn't include env step size
+        self._max_epocs = self._max_time_steps # Doesn't include env step size
         self._current_training_epocs = 0.0
             
         # Annealing variables
@@ -48,7 +48,11 @@ class Coordinator:
         self._epsilon = self._config['Epsilon']
         self._clipnorm =self._config['PPO clip range']
         self._min_clip = self._config['Min clip']
-        self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm) # , decay=0.0001
+
+        if self._config['Decay clip and learning rate']:
+            self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm, decay=self._config['Learning rate decay'])
+        else:
+            self._optimizer = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, epsilon=self._epsilon, clipnorm=self._clipnorm)
 
         # Discount variables
         self._gamma = self._config['Gamma']
@@ -75,7 +79,7 @@ class Coordinator:
     # STD Mean normalization
     def _normalize(self, x):
         
-        norm_x = x - np.mean(x) / (np.std(x) + 1e-8)
+        norm_x = ((x - np.mean(x, axis=0)) / (np.std(x, axis=0) + 1e-8))
         # norm_x = (x - tf.reduce_mean(x)) / tf.math.reduce_std(x)
         return norm_x
 

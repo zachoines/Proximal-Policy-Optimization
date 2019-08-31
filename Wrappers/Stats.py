@@ -25,7 +25,7 @@ class Stats(RewardWrapper):
         self.last_values = 0
         self.EMA = 0
         self._recent_rewards = []
-        self._buffer_len = 128
+        self._buffer_len = 5
         self.TOTAL_EPISODE_REWARDS = 0
     def _update_buffer(self, reward):
         if len(self._recent_rewards) >= self._buffer_len:

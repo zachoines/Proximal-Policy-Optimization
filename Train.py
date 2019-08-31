@@ -40,19 +40,19 @@ class Train():
         print("GPU Available: ", tf.test.is_gpu_available())
 
         # GPU configuration
-        gpus = tf.config.experimental.list_physical_devices('GPU')
+        # gpus = tf.config.experimental.list_physical_devices('GPU')
         tf.config.threading.set_inter_op_parallelism_threads(0)
         tf.config.threading.set_intra_op_parallelism_threads(0)
         
-        if gpus:
-            try:
+        # if gpus:
+        #     try:
             
-                # Currently, memory growth needs to be the same across GPUs
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
+        #         # Currently, memory growth needs to be the same across GPUs
+        #         for gpu in gpus:
+        #             tf.config.experimental.set_memory_growth(gpu, True)
             
-            except RuntimeError as e:
-                print(e)
+        #     except RuntimeError as e:
+        #         print(e)
 
         env_names = []
         for _ in range(self._config['Number of worker threads']):
@@ -77,7 +77,7 @@ class Train():
             if env_name == 'SuperMarioBros-v0':
                 env = JoypadSpace(env, COMPLEX_MOVEMENT)
                 env = preprocess.FrameSkip(env, 4)
-                env = Normalize(env)
+            env = Normalize(env)
             env = Monitor(env, env.observation_space.shape, savePath=self._video_save_path, record=self.record)
             env = preprocess.GrayScaleImage(env, height=84, width=84, grayscale=True)
             env = preprocess.FrameStack(env, 4)
