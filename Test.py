@@ -8,12 +8,29 @@ import tensorflow as tf
 # Importing the packages for OpenAI and MARIO
 import gym
 
+# Importing the packages for OpenAI
+import gym
+import gym
+from nes_py.wrappers import JoypadSpace
+import gym_super_mario_bros
+from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
+
 # Locally defined classes
+from Wrappers import preprocess
+from Wrappers.Normalize import Normalize
+from Wrappers.Monitor import Monitor
+from Wrappers.Stats import Stats, Collector, AsynchronousPlot
+from Worker import Worker, WorkerThread
 from NN.CNN_LARGE import AC_Model_Large
 from NN.CNN_SMALL import AC_Model_Small
+from Coordinator import Coordinator
+from Wrappers.preprocess import FrameSkip
+
+from Config import config as config
+
 
 class Test():
-    def __init__(self, config):
+    def __init__(self, config=config):
 
         # Reproduce training results
         np.random.seed(42)
@@ -25,6 +42,13 @@ class Test():
 
         # Apply env wrappers
         env = gym.make(config['Environment Name'])
+
+        if config['Environment Name'] == 'SuperMarioBros-v0':
+            env = JoypadSpace(env, COMPLEX_MOVEMENT)
+            env = preprocess.FrameSkip(env, 4)
+        env = preprocess.GrayScaleImage(env, height=84, width=84, grayscale=True)
+        env = preprocess.FrameStack(env, 4)
+        
         NUM_STATE = env.observation_space.shape
         NUM_ACTIONS = env.env.action_space.n
         ACTION_SPACE = env.env.action_space
@@ -34,7 +58,7 @@ class Test():
         if self._config['CNN type'] == 'large':
             self.Test_Model = AC_Model_Large(NUM_STATE, NUM_ACTIONS, self._config, is_training=False)
         else:
-            self.Test_Model = AC_Model_Small(NUM_STATE, NUM_ACTIONS, is_training=False)
+            self.Test_Model = AC_Model_Small(NUM_STATE, NUM_ACTIONS, self._config, is_training=False)
 
         # Load model if exists
         if not os.path.exists(model_save_path):
@@ -43,10 +67,10 @@ class Test():
             try:
                 if (os.path.exists(model_save_path + "\checkpoint")):
                     
-                    Test_Model.load_model_weights()
+                    self.Test_Model.load_model_weights()
                     print("Model restored.")
                     print("Now running environment...")
-                    self._run(10000, env, Test_Model, True)
+                    self._run(10000, env, self.Test_Model, True)
                 
                 else:
                     raise("There is no model available")
@@ -63,7 +87,7 @@ class Test():
             
             # Make a prediction and take a step if the epoc is not done
             if not done:
-                [logits], d, _ = network.step(np.expand_dims(s, axis=0), 1.0)
+                [logits], d, _ = network.step(s, 1.0)
                 action = self._action_select(logits)
                 s_t, reward, d, stuff = env.step(action)
                 done = d

@@ -29,7 +29,7 @@ class AC_Model_Small(tf.keras.Model):
             name="conv1",
             trainable=is_training )
         
-        self.maxPool1 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="maxPool1")
+        # self.maxPool1 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="maxPool1")
 
         # define Convolution 2
         self.conv2 = tf.keras.layers.Conv2D(
@@ -42,12 +42,12 @@ class AC_Model_Small(tf.keras.Model):
             name="conv2", 
             trainable=is_training)
 
-        self.maxPool2 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="maxPool2", trainable=is_training )
+        # self.maxPool2 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="maxPool2", trainable=is_training )
         
         self.flattened = tf.keras.layers.Flatten(name="flattening_layer", trainable=is_training )
         
         self.hiddenLayer = tf.keras.layers.Dense(
-            256,
+            512,
             activation="relu",
             kernel_initializer=tf.keras.initializers.Orthogonal(gain=np.sqrt(2.0)),
             name="hidden_layer", 
@@ -85,16 +85,16 @@ class AC_Model_Small(tf.keras.Model):
         conv1_out = self.conv1(input_image)
         # batch_reg1_out = self.batch_reg1(conv1_out)
         # spatial_dropout1_out = self.spatial_dropout1(batch_reg1_out)
-        maxPool1_out = self.maxPool1(conv1_out)
+        #maxPool1_out = self.maxPool1(conv1_out)
 
         # Feature maps two
-        conv2_out = self.conv2(maxPool1_out)
+        conv2_out = self.conv2(conv1_out)
         # batch_reg2_out = self.batch_reg2(conv2_out)
         # spatial_dropout2_out = self.spatial_dropout2(batch_reg2_out)
-        maxPool2_out = self.maxPool2(conv2_out)
+        # maxPool2_out = self.maxPool2(conv2_out)
         
         # Hidden Linear layers
-        flattened_out = self.flattened(maxPool2_out)
+        flattened_out = self.flattened(conv2_out)
         hidden_out = self.hiddenLayer(flattened_out)
         # hidden_out = self.linear_dropout(hidden_out)
         # hidden_out = self.lstm(tf.expand_dims(hidden_out, axis=1))
