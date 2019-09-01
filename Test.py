@@ -26,7 +26,7 @@ from NN.CNN_SMALL import AC_Model_Small
 from Coordinator import Coordinator
 from Wrappers.preprocess import FrameSkip
 
-from Config import config as config
+from Config import config_pacman as config
 
 
 class Test():

@@ -22,7 +22,7 @@ class Normalize(Wrapper):
         return self.observation(observation), self.reward(reward), done, info
 
     def reward(self, reward):
-        return (reward) 
+        return (reward / 100) 
 
     def observation(self, observation):
         return observation
