@@ -1,8 +1,8 @@
-# Trained on two threads
+# Trained on four threads
 config_pacman = {
 
     # Environmental variables
-    'Environment Name' : 'MsPacman-v0',                                     # Env given to each worker. Play with 'MsPacman-v0' or 'SuperMarioBros-v0' as well.
+    'Environment Name' : 'MsPacman-v0',                                 # Env given to each worker. Play with 'MsPacman-v0' or 'SuperMarioBros-v0' as well.
     'Number of worker threads' : 4,                                     # Number of parallel envs on their own thread.
 
     # Sample loop variables
@@ -12,16 +12,16 @@ config_pacman = {
     'Max timsteps' : 8192,                                              # Episodes * batches. likely will end far before as envs may terminate early.
     
     # Training loop variables
-    'Training epochs' : 4,                                              # Number of times we train on a sample gathered from env.
+    'Training epochs' : 8,                                              # Number of times we train on a sample gathered from env.
     'Mini batches per training epoch' : 4,                              # How many updates per epoch per batch.
     
     # Learning variables
     'Epsilon' : 1e-5,                                                   # Noise factor for adam optimizer.
     'Gamma' : 0.99,                                                     # discount factor for rewards.
-    'Learning rate' : 3e-4,                                             # Learning rate for adam optimizer.
+    'Learning rate' : 2.5e-4,                                           # Learning rate for adam optimizer.
     'PPO clip range' : 0.1,                                             # Max ratio for PPO loss function .10 ~ .20.
     'Max grad norm' : 0.5,                                              # Clip norm feed to adam optimizer.
-    'Normalize advantages' : False,                                     # Normalize advantages in mini-batch sent to loss function.
+    'Normalize advantages' :False,                                      # Normalize advantages in mini-batch sent to loss function.
 
     # Loss function coefficient     
     'Value loss coeff' : 0.5,                                           # Discount factor dor value loss in PPO loss function.

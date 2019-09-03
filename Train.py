@@ -76,9 +76,10 @@ class Train():
             env = gym.make(env_name) 
             if env_name == 'SuperMarioBros-v0':
                 env = JoypadSpace(env, COMPLEX_MOVEMENT)
-                env = preprocess.FrameSkip(env, 4)
+            
             env = Normalize(env)
             env = Monitor(env, env.observation_space.shape, savePath=self._video_save_path, record=self.record)
+            env = preprocess.FrameSkip(env, 4) 
             env = preprocess.GrayScaleImage(env, height=84, width=84, grayscale=True)
             env = preprocess.FrameStack(env, 4)
             

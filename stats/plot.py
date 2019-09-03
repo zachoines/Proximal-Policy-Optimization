@@ -16,7 +16,7 @@ dimension = dimensions[3]
 
 # load in data and sort
 heap = []
-x, runtime, y = np.loadtxt(dimension + ".txt", delimiter=',', unpack=True)
+runtime, x, y = np.loadtxt(dimension + ".txt", delimiter=',', unpack=True)
 for i in range(len(runtime)):
     data = y[i]
     time = runtime[i]
@@ -84,4 +84,5 @@ elif line_type == 'log':
     # plt.show()
 
     
+
 

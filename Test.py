@@ -45,7 +45,7 @@ class Test():
 
         if config['Environment Name'] == 'SuperMarioBros-v0':
             env = JoypadSpace(env, COMPLEX_MOVEMENT)
-            env = preprocess.FrameSkip(env, 4)
+        env = preprocess.FrameSkip(env, 4)
         env = preprocess.GrayScaleImage(env, height=84, width=84, grayscale=True)
         env = preprocess.FrameStack(env, 4)
         
