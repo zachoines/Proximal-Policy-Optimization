@@ -1,5 +1,5 @@
 # PPO_AI
-AI model utilizing the Proximal Policy Optimization algorithm in the common Actor Critic style network strategy. Origional research papper is [here](https://arxiv.org/abs/1707.06347).
+AI model utilizing the Proximal Policy Optimization algorithm in the common Actor Critic style network strategy. Origional research paper is [here](https://arxiv.org/abs/1707.06347).
 
 ### Installation
 Should be able to get working with pip package manager. Simply type "pip install -r requirements.txt"
