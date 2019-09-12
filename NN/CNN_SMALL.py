@@ -53,7 +53,7 @@ class AC_Model_Small(tf.keras.Model):
             name="hidden_layer", 
             trainable=is_training )
 
-        # self.lstm = tf.keras.layers.SimpleRNN(256, trainable=is_training)
+        self.lstm = tf.keras.layers.SimpleRNN(256, trainable=is_training)
 
         # Output Layer consisting of an Actor and a Critic
         self._value = tf.keras.layers.Dense(
@@ -96,7 +96,7 @@ class AC_Model_Small(tf.keras.Model):
         # Hidden Linear layers
         flattened_out = self.flattened(conv2_out)
         hidden_out = self.hiddenLayer(flattened_out)
-        hidden_out = self.linear_dropout(hidden_out)
+        # hidden_out = self.linear_dropout(hidden_out)
         # hidden_out = self.lstm(tf.expand_dims(hidden_out, axis=1))
 
         # Actor and the Critic outputs

@@ -35,8 +35,14 @@ class GrayScaleImage(ObservationWrapper):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
         img = cv2.resize(img, self.img_size, interpolation = cv2.INTER_AREA)
-        img = cv2.normalize(img, None, alpha=0, beta=1, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_64F)
-        img = img[:, :, np.newaxis] 
+
+        if self.grayscale:
+            img = img / 255.0
+        else: 
+            img = cv2.normalize(img, None, alpha=0, beta=1, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_64F)
+
+        if self.grayscale:
+            img = img[:, :, np.newaxis] 
    
         return [img]
 

@@ -76,6 +76,7 @@ class AC_Model_Large(tf.keras.Model):
         #     trainable=is_training, 
         #     dtype='float64' )
         
+        # self.lstm = tf.keras.layers.SimpleRNN(512, trainable=is_training)
 
         # self.dropout1 = tf.keras.layers.Dropout(0.5)
         # self.dropout2 = tf.keras.layers.Dropout(0.5)
@@ -118,6 +119,7 @@ class AC_Model_Large(tf.keras.Model):
 
         # Linear layers
         flattened_out = self.flattened(conv3_out)
+        # lstm_out = self.lstm(tf.expand_dims(flattened_out, axis=1))
         hidden_out1 = self.hiddenLayer1(flattened_out)
         # hidden_out1 = self.dropout1(hidden_out1)
         # hidden_out2 = self.hiddenLayer2(hidden_out1)
@@ -147,7 +149,7 @@ class AC_Model_Large(tf.keras.Model):
             self.save_weights(model_save_path, save_format='tf')
         except:
             print("ERROR: There was an issue saving the model weights.")
-            raise
+
 
     def load_model_weights(self):
         model_save_path = '.\Model\checkpoint.tf'

@@ -1,34 +1,36 @@
-# Trained on four threads
+# Trained on eight threads and GPU
 config_pacman = {
 
     # Environmental variables
     'Environment Name' : 'MsPacman-v0',                                 # Env given to each worker. Play with 'MsPacman-v0' or 'SuperMarioBros-v0' as well.
-    'Number of worker threads' : 4,                                     # Number of parallel envs on their own thread.
+    'Number of worker threads' : 8,                                     # Number of parallel envs on their own thread.
+    'Wrapper class' : 'MsPacmanWrapper',
 
     # Sample loop variables
-    'Number of environment episodes' : 8192,                            # How many times we reboot test envs.
-    'Max Number of sample batches per environment episode' : 1,         # May end earlier.
-    'Max steps taken per batch' : 256,                                  # Number steps agent takes in env.
-    'Max timsteps' : 8192,                                              # Episodes * batches. likely will end far before as envs may terminate early.
+    'Number of environment episodes' : 8192*8,                          # How many times we reboot test envs.
+    'Max Number of sample batches per environment episode' : 1,         # 
+    'Max steps taken per batch' : 128,                                  # Number steps agent takes in env.
+    'Max timsteps' : 8192*8,                                            # Episodes * batches. 
     
     # Training loop variables
     'Training epochs' : 8,                                              # Number of times we train on a sample gathered from env.
-    'Mini batches per training epoch' : 4,                              # How many updates per epoch per batch.
+    'Mini batches per training epoch' : 8,                              # How many updates per epoch per batch.
     
     # Learning variables
     'Epsilon' : 1e-5,                                                   # Noise factor for adam optimizer.
     'Gamma' : 0.99,                                                     # discount factor for rewards.
-    'Learning rate' : 2.5e-4,                                           # Learning rate for adam optimizer.
+    'Learning rate' : 3e-4,                                             # Learning rate for adam optimizer.
     'PPO clip range' : 0.1,                                             # Max ratio for PPO loss function .10 ~ .20.
     'Max grad norm' : 0.5,                                              # Clip norm feed to adam optimizer.
-    'Normalize advantages' :False,                                      # Normalize advantages in mini-batch sent to loss function.
+    'Normalize advantages' : False,                                     # Normalize advantages in mini-batch sent to loss function.
 
     # Loss function coefficient     
-    'Value loss coeff' : 0.5,                                           # Discount factor dor value loss in PPO loss function.
+    'Value loss coeff' : 0.5,                                           # Discount factor for value loss in PPO loss function.
     'Entropy coeff' : 0.01,                                             # Discount factor applied to entropy bonus in PPO loss function. HIgher means more agent exploration.
 
     # CNN options
-    'CNN type' : 'small',                                               # 'large' vs. 'small.' Means one has more convolution layers.
+    'CNN type' : '',                                                    # " '' " means 'CNN_LARGE' class will be used. 'Large' vs 'small' means more/less convolutional layers
+    'Grayscale' : True,
 
     # Decay options
     'Pre training steps' : 0,                                           # Steps taken before annealing starts.
@@ -45,17 +47,18 @@ config_breakout = {
     # Environmental variables
     'Environment Name' : 'Breakout-v0',                                 # Env given to each worker. Play with 'MsPacman-v0' or 'SuperMarioBros-v0' as well.
     'Number of worker threads' : 8,                                     # Number of parallel envs on their own thread.
+    'Wrapper class' : '',
 
     # Sample loop variables
     'Number of environment episodes' : 8192,                            # How many times we reboot test envs.
-    'Max Number of sample batches per environment episode' : 1,         # May end earlier.
+    'Max Number of sample batches per environment episode' : 1,         # 
     'Max steps taken per batch' : 128,                                  # Number steps agent takes in env.
-    'Max timsteps' : 8192,                                              # Episodes * batches. likely will end far before as envs may terminate early.
+    'Max timsteps' : 8192,                                              # Episodes * batches. 
     
     # Training loop variables
     'Training epochs' : 4,                                              # Number of times we train on a sample gathered from env.
     'Mini batches per training epoch' : 8,                              # How many updates per epoch per batch.
-    
+
     # Learning variables
     'Epsilon' : 1e-5,                                                   # Noise factor for adam optimizer.
     'Gamma' : 0.99,                                                     # discount factor for rewards.
@@ -65,11 +68,12 @@ config_breakout = {
     'Normalize advantages' : False,                                     # Normalize advantages in mini-batch sent to loss function.
 
     # Loss function coefficient     
-    'Value loss coeff' : 0.5,                                           # Discount factor dor value loss in PPO loss function.
+    'Value loss coeff' : 0.5,                                           # Discount factor for value loss in PPO loss function.
     'Entropy coeff' : 0.01,                                             # Discount factor applied to entropy bonus in PPO loss function. HIgher means more agent exploration.
 
     # CNN options
-    'CNN type' : 'small',                                               # 'large' vs. 'small.' Means one has more convolution layers.
+'CNN type' : 'CNN_SMALL',                                               # Enter CNN Class names here.
+    'Grayscale' : True,
 
     # Decay options
     'Pre training steps' : 0,                                           # Steps taken before annealing starts.
@@ -80,23 +84,24 @@ config_breakout = {
 
 }
 
-# Trained on two threads
+# Trained on two threads (laptop resources)
 config_pong = {
 
     # Environmental variables
     'Environment Name' : 'Pong-v0',                                     # Env given to each worker. Play with 'MsPacman-v0' or 'SuperMarioBros-v0' as well.
     'Number of worker threads' : 2,                                     # Number of parallel envs on their own thread.
+    'Wrapper class' : '',
 
     # Sample loop variables
     'Number of environment episodes' : 8192,                            # How many times we reboot test envs.
-    'Max Number of sample batches per environment episode' : 1,         # May end earlier.
+    'Max Number of sample batches per environment episode' : 1,         # 
     'Max steps taken per batch' : 512,                                  # Number steps agent takes in env.
-    'Max timsteps' : 8192,                                              # Episodes * batches. likely will end far before as envs may terminate early.
+    'Max timsteps' : 8192,                                              # Episodes * batches. 
     
     # Training loop variables
     'Training epochs' : 4,                                              # Number of times we train on a sample gathered from env.
     'Mini batches per training epoch' : 4,                              # How many updates per epoch per batch.
-    
+
     # Learning variables
     'Epsilon' : 1e-5,                                                   # Noise factor for adam optimizer.
     'Gamma' : 0.99,                                                     # discount factor for rewards.
@@ -106,11 +111,12 @@ config_pong = {
     'Normalize advantages' : False,                                     # Normalize advantages in mini-batch sent to loss function.
 
     # Loss function coefficient     
-    'Value loss coeff' : 0.5,                                           # Discount factor dor value loss in PPO loss function.
+    'Value loss coeff' : 0.5,                                           # Discount factor for value loss in PPO loss function.
     'Entropy coeff' : 0.01,                                             # Discount factor applied to entropy bonus in PPO loss function. HIgher means more agent exploration.
 
     # CNN options
-    'CNN type' : 'small',                                               # 'large' vs. 'small.' Means one has more convolution layers.
+    'CNN type' : 'CNN_SMALL',                                           # Enter CNN class name here. 
+    'Grayscale' : False,
 
     # Decay options
     'Pre training steps' : 0,                                           # Steps taken before annealing starts.

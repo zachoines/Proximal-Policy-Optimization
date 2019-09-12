@@ -382,7 +382,7 @@ class Coordinator:
                         break
 
                 try:
-                    #Save model and other variables
+                    # Save model and other variables
                     with open(save_path, 'w') as f:
                         try:
                             f.write(str(self._total_steps))
