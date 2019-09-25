@@ -11,14 +11,14 @@ from heapq import *
 # type what you want to display here
 line_types = ["linear", "log"]
 line_type = line_types[0]
-dimensions = ["CMA", "EMA", "SMA", 'TOTAL_EPISODE_REWARDS', "LENGTH", "LOSS"]
+dimensions = ["CMA", "EMA", "SMA", 'TOTAL_EPISODE_REWARDS', "LENGTH", "LOSS","1"]
 dimension = dimensions[3]
 
 # load in data and sort
 heap = []
 runtime, x, y = np.loadtxt(dimension + ".txt", delimiter=',', unpack=True)
 for i in range(len(runtime)):
-    data = y[i]
+    data = abs(y[i])
     time = runtime[i]
     item = (time, data)
     heappush(heap, item)

@@ -54,10 +54,15 @@ class MsPacmanWrapper(Wrapper):
         # Power Pill: 40
 
         ### New cost/rewards function ###
-        step = -0.01
+        # step = -0.1
+        # reverse = -0.05
+        # life_loss = -3
+        # death = -3
+
+        step = 0.0
         reverse = 0.0
-        life_loss = -2
-        death = -2
+        life_loss = 0.0
+        death = 0.0
 
         # Check for going backwards
         if self._reversed != None:
@@ -120,7 +125,7 @@ class MsPacmanWrapper(Wrapper):
             rewards += death
             
         # clip everything 
-        rewards = np.clip(rewards, -4, 4)
+        rewards = np.clip(rewards, -3, 3)
         
         return self.observation(observation), self.reward(rewards), done, info
     

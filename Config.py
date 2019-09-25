@@ -4,13 +4,13 @@ config_pacman = {
     # Environmental variables
     'Environment Name' : 'MsPacman-v0',                                 # Env given to each worker. Play with 'MsPacman-v0' or 'SuperMarioBros-v0' as well.
     'Number of worker threads' : 8,                                     # Number of parallel envs on their own thread.
-    'Wrapper class' : 'MsPacmanWrapper',
+    'Wrapper class' : 'MsPacmanWrapper',                                # Optionally defined OpenAI env wrapper sub-class to modify anything relating to this env.
 
     # Sample loop variables
-    'Number of environment episodes' : 8192*8,                          # How many times we reboot test envs.
+    'Number of environment episodes' : 8192*2,                          # How many times we reboot test envs.
     'Max Number of sample batches per environment episode' : 1,         # 
-    'Max steps taken per batch' : 128,                                  # Number steps agent takes in env.
-    'Max timsteps' : 8192*8,                                            # Episodes * batches. 
+    'Max steps taken per batch' : 128,                                   # Number steps agent takes in env.
+    'Max timsteps' : 8192*2,                                            # Episodes * batches. 
     
     # Training loop variables
     'Training epochs' : 8,                                              # Number of times we train on a sample gathered from env.
@@ -19,8 +19,8 @@ config_pacman = {
     # Learning variables
     'Epsilon' : 1e-5,                                                   # Noise factor for adam optimizer.
     'Gamma' : 0.99,                                                     # discount factor for rewards.
-    'Learning rate' : 3e-4,                                             # Learning rate for adam optimizer.
-    'PPO clip range' : 0.1,                                             # Max ratio for PPO loss function .10 ~ .20.
+    'Learning rate' : 1e-3,                                             # Learning rate for adam optimizer.
+    'PPO clip range' : .20,                                              # Max ratio for PPO loss function .10 ~ .20.
     'Max grad norm' : 0.5,                                              # Clip norm feed to adam optimizer.
     'Normalize advantages' : False,                                     # Normalize advantages in mini-batch sent to loss function.
 
@@ -47,7 +47,7 @@ config_breakout = {
     # Environmental variables
     'Environment Name' : 'Breakout-v0',                                 # Env given to each worker. Play with 'MsPacman-v0' or 'SuperMarioBros-v0' as well.
     'Number of worker threads' : 8,                                     # Number of parallel envs on their own thread.
-    'Wrapper class' : '',
+    'Wrapper class' : '',                                               # Optionally defined OpenAI env wrapper sub-class to modify anything relating to this env.            
 
     # Sample loop variables
     'Number of environment episodes' : 8192,                            # How many times we reboot test envs.
@@ -72,7 +72,7 @@ config_breakout = {
     'Entropy coeff' : 0.01,                                             # Discount factor applied to entropy bonus in PPO loss function. HIgher means more agent exploration.
 
     # CNN options
-'CNN type' : 'CNN_SMALL',                                               # Enter CNN Class names here.
+    'CNN type' : 'CNN_SMALL',                                           # Enter CNN Class names here.
     'Grayscale' : True,
 
     # Decay options
@@ -90,7 +90,7 @@ config_pong = {
     # Environmental variables
     'Environment Name' : 'Pong-v0',                                     # Env given to each worker. Play with 'MsPacman-v0' or 'SuperMarioBros-v0' as well.
     'Number of worker threads' : 2,                                     # Number of parallel envs on their own thread.
-    'Wrapper class' : '',
+    'Wrapper class' : '',                                               # Optionally defined OpenAI env wrapper sub-class to modify anything relating to this env.
 
     # Sample loop variables
     'Number of environment episodes' : 8192,                            # How many times we reboot test envs.

@@ -56,12 +56,13 @@ class Train():
         tf.config.threading.set_intra_op_parallelism_threads(0)
         
         if gpus:
+            
             try:
             
                 # Currently, memory growth needs to be the same across GPUs
                 for gpu in gpus:
                     tf.config.experimental.set_memory_growth(gpu, True)
-            
+
             except RuntimeError as e:
                 print(e)
 
@@ -90,9 +91,10 @@ class Train():
                 env = JoypadSpace(env, COMPLEX_MOVEMENT)
 
             # Load wrapper class
+            env = Stats(env, collector)
             if self._config['Wrapper class'] != '':
                 env = env_wrapper_import(self._config['Wrapper class'], env)
-            env = Stats(env, collector)
+            
             
             env = Monitor(env, env.observation_space.shape, savePath=self._video_save_path, record=self.record)
 
